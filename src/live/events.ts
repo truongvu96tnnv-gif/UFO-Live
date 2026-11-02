@@ -1,3 +1,5 @@
+import type { BossId } from "./boss-catalog";
+
 // Sự kiện live đã chuẩn hoá — bridge (server/index.ts), chế độ demo và phím tắt đều phát ra đúng dạng này.
 
 export interface LiveUser {
@@ -19,6 +21,7 @@ export interface ControlSettings {
 }
 
 export type LiveEvent =
+  | { type: "summonBoss"; bossId: BossId }
   | { type: "control"; settings: ControlSettings }
   | { type: "remove"; ids: string[] }
   | { type: "presence"; user: LiveUser; remainingMs?: number }

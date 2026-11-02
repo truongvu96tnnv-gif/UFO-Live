@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { ControlEvent, TikTokLiveConnection, WebcastEvent } from "tiktok-live-connector";
 import { WebSocket, WebSocketServer } from "ws";
 import { PRESENCE_TTL_MS } from "../src/live/events";
+import { BOSS_NAMES, isBossId } from "../src/live/boss-catalog";
 import { DEFAULT_CONTROL, parseControl, SimulatedPlayers } from "./control";
 import { bindLiveEvents } from "./live";
 import type { LiveEvent, LiveUser } from "../src/live/events";
@@ -63,7 +64,7 @@ const simulation = new SimulatedPlayers(broadcast, () => {
 setInterval(() => simulation.tick(0.1), 100).unref();
 
 function broadcast(e: LiveEvent) {
-  if (e.type === "control") {
+  if (e.type === "control" || e.type === "summonBoss") {
     // Settings are replayed separately to new game displays.
   } else if (e.type === "remove") {
     for (const id of e.ids) recent.delete(id);
@@ -287,7 +288,7 @@ server.listen(PORT, HOST, () => {
 
 async function controlRoute(req: IncomingMessage, res: ServerResponse) {
   const respond = (code: number, data: unknown) => res.writeHead(code, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(data));
-  const snapshot = () => ({ settings: control, username: USERNAME, status: lastStatus, viewers: viewerCount, clients: wss.clients.size, events: counts, lastEventAt, botAutoStopped });
+  const snapshot = () => ({ settings: control, username: USERNAME, status: lastStatus, viewers: viewerCount, clients: wss.clients.size, events: counts, lastEventAt, botAutoStopped, bosses: Object.entries(BOSS_NAMES).map(([id, name]) => ({ id, name })) });
   if (req.method === "GET") return void respond(200, snapshot());
   if (req.method !== "POST") return void respond(405, { error: "Method not allowed" });
   if (!req.headers["content-type"]?.startsWith("application/json")) return void respond(415, { error: "JSON required" });
@@ -305,6 +306,12 @@ async function controlRoute(req: IncomingMessage, res: ServerResponse) {
       control = next;
       if (control.simulatedPlayers > 0) botAutoStopped = false;
       broadcast({ type: "control", settings: control });
+    } else if (data.action === "summonBoss") {
+      if (!isBossId(data.bossId)) throw new Error("Boss không hợp lệ");
+      if (![...wss.clients].some(client => client.readyState === WebSocket.OPEN)) {
+        return void respond(409, { error: "Chưa có màn hình game kết nối. Hãy mở màn hình game trước." });
+      }
+      broadcast({ type: "summonBoss", bossId: data.bossId });
     } else if (data.action === "connect") {
       if (typeof data.username !== "string" || !/^@?[a-zA-Z0-9_.]{1,64}$/.test(data.username.trim())) throw new Error("Nhập username TikTok, không nhập đường dẫn");
       USERNAME = data.username.trim().replace(/^@/, "");

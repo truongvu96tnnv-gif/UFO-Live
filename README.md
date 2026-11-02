@@ -245,3 +245,7 @@ Có thể thêm 0–20 **BOT mô phỏng**, chọn 3 nhịp tương tác và t�
 Mỗi gói tim tạo tối đa 12 tia laser, phát đầu ngay và cách nhau 45 ms, tổng sát thương bằng số tim × sát thương mỗi tim. App không thể loại bỏ độ trễ trước khi TikTok gửi gói sự kiện.
 
 BOT tự tắt khi số người xem thật TikTok báo về **vượt 20** (20 vẫn được bật, 21 trở lên sẽ tắt). Khi người xem giảm, BOT không tự bật lại; có thể bật thủ công khi còn tối đa 20 người xem. Thời điểm tắt phụ thuộc lúc TikTok gửi cập nhật số người xem.
+
+### Gọi boss từ trang điều khiển
+
+Trong `/control`, chọn một trong 12 boss/UFO rồi bấm **Gọi boss ngay**. Lệnh thay trận hiện tại bằng trận mới có màn xuất hiện của boss, dọn đạn và kỹ năng cũ, giữ tổng tỉ số/chuỗi thắng. Mọi màn hình game đang kết nối đều nhận lệnh. Nếu chưa có màn hình game, API báo lỗi; lệnh không được lưu để phát lại khi tải trang.

@@ -1,6 +1,7 @@
 import { cleanChat, cleanName } from "../live/filter";
 import { PRESENCE_TTL_MS } from "../live/events";
 import type { LiveEvent, LiveUser } from "../live/events";
+import { isBossId } from "../live/boss-catalog";
 import { likeBurst } from "./like-burst";
 import { Avatars } from "./avatars";
 import type { Balance } from "./balance";
@@ -496,6 +497,30 @@ export class Game {
     return d.name;
   }
 
+  /** Operator command: start a fresh encounter with its entrance animation. */
+  summonBoss(id: BossId) {
+    if (!isBossId(id)) return;
+    this.shots = [];
+    this.beams = [];
+    this.crates = [];
+    this.enemyShots = [];
+    this.breathT = -99;
+    this.spitT = -99;
+    this.webT0 = -99;
+    this.muzzle = 0;
+    this.beam = 0;
+    this.devour = null;
+    this.sfx.chargeStop();
+    this.banners = [];
+    this.floaters = [];
+    for (const person of this.people) {
+      person.suck = -1;
+      person.fate = null;
+    }
+    this.forcedBoss = id;
+    this.startRound();
+  }
+
   /** Bắt đầu ngay 1 trận với trùm chỉ định (dùng để thử) */
   debugBoss(id: BossId) {
     this.forcedBoss = id;
@@ -656,6 +681,10 @@ export class Game {
   // ================= sự kiện live =================
 
   handle(e: LiveEvent) {
+    if (e.type === "summonBoss") {
+      this.summonBoss(e.bossId);
+      return;
+    }
     if (e.type === "control") {
       this.simulatedPlayers = e.settings.simulatedPlayers;
       this.sfx.muted = e.settings.muted;

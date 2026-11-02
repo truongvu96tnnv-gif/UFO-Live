@@ -24,6 +24,12 @@ test('control HTTP API and game WebSocket share simulation state without inflati
   const base = `http://127.0.0.1:${port}`;
   const post = body => fetch(`${base}/api/control`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   assert.equal((await fetch(`${base}/control`, { redirect: 'manual' })).status, 302);
+  const catalog = await (await fetch(`${base}/api/control`)).json();
+  assert.equal(catalog.bosses.length, 12);
+  assert.ok(catalog.bosses.some(boss => boss.id === 'dragon' && boss.name));
+  assert.equal((await post({ action: 'summonBoss', bossId: 'invalid' })).status, 400);
+  assert.equal((await post({ action: 'summonBoss', bossId: 'toString' })).status, 400);
+  assert.equal((await post({ action: 'summonBoss', bossId: 'dragon' })).status, 409);
   assert.equal((await post({ action: 'settings', settings: { simulatedPlayers: 100 } })).status, 400);
   assert.equal((await post({ action: 'connect', username: 'https://invalid.example' })).status, 400);
   assert.equal((await post({ action: 'settings', settings: { simulatedPlayers: 3, intensity: 3, muted: true } })).status, 200);
@@ -38,6 +44,21 @@ test('control HTTP API and game WebSocket share simulation state without inflati
   await firstLike;
   assert.equal(messages.find(e => e.type === 'control').settings.simulatedPlayers, 3);
   assert.ok(messages.some(e => e.type === 'presence' && e.user.id === 'sim:1'));
+  const summoned = new Promise(resolve => ws.on('message', raw => {
+    const data = JSON.parse(String(raw));
+    if (data.type === 'summonBoss') resolve(data);
+  }));
+  assert.equal((await post({ action: 'summonBoss', bossId: 'dragon' })).status, 200);
+  assert.deepEqual(await summoned, { type: 'summonBoss', bossId: 'dragon' });
+  const late = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => late.terminate());
+  const replay = [];
+  await new Promise(resolve => late.on('message', raw => {
+    const data = JSON.parse(String(raw));
+    replay.push(...(Array.isArray(data) ? data : [data]));
+    if (Array.isArray(data)) resolve();
+  }));
+  assert.ok(!replay.some(e => e.type === 'summonBoss'), 'boss commands must not replay to new displays');
   const health = await (await fetch(`${base}/health`)).json();
   assert.deepEqual(health.events, {});
   assert.equal(health.lastEventAt, null);

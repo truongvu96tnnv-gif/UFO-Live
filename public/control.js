@@ -34,6 +34,7 @@ function render(data) {
   const names = { join: 'Vào phòng', like: 'Gói tim', chat: 'Bình luận', gift: 'Gói quà', follow: 'Follow', share: 'Chia sẻ', envelope: 'Rương' };
   $('events').textContent = Object.entries(data.events).map(([key, value]) => `${names[key] || key}: ${value}`).join(' · ') || '—';
   if (!initialized) {
+    $('bossId').replaceChildren(...data.bosses.map(boss => new Option(boss.name, boss.id)));
     $('username').value = data.username || '';
     syncForm(data);
     initialized = true;
@@ -49,7 +50,7 @@ async function command(body) {
     if (!response.ok) throw new Error(data.error || 'Không thể áp dụng');
     render(data);
     syncForm(data);
-    notice(body.action === 'connect' ? 'Đã gửi yêu cầu kết nối. Theo dõi trạng thái bên trên.' : 'Đã áp dụng.');
+    notice(body.action === 'summonBoss' ? `Đã gửi lệnh gọi ${data.bosses.find(b => b.id === body.bossId)?.name || body.bossId} đến ${data.clients} màn hình game.` : body.action === 'connect' ? 'Đã gửi yêu cầu kết nối. Theo dõi trạng thái bên trên.' : 'Đã áp dụng.');
   } catch (err) {
     notice(err.message, true);
     if (lastSnapshot) syncForm(lastSnapshot);
@@ -58,6 +59,7 @@ async function command(body) {
     document.querySelectorAll('button, input, select').forEach(b => b.disabled = false);
   }
 }
+$('bossForm').onsubmit = e => { e.preventDefault(); command({ action: 'summonBoss', bossId: $('bossId').value }); };
 $('channelForm').onsubmit = e => { e.preventDefault(); command({ action: 'connect', username: $('username').value }); };
 $('disconnect').onclick = () => command({ action: 'disconnect' });
 $('playerCount').oninput = () => $('countLabel').value = $('playerCount').value;
