@@ -687,8 +687,6 @@ export const BOSS_ART: Record<BossId, BossArt> = {
 // Nhập bằng: tools/import_boss_anim.py <thư-mục-bộ-chuyển-động> <boss-id>. Boss có bộ chuyển động thì game dùng nó
 // thay cho art tĩnh; boss chưa có thì vẫn dùng art tĩnh + hiệu ứng code như cũ.
 import type { AnimMeta } from "./anim";
-import ufoAnimMeta from "../assets/bosses/ufo-anim.json";
-import ufoAnimUrl from "../assets/bosses/ufo-anim.webp";
 
 export interface BossAnimDef {
   url: string;
@@ -700,6 +698,4 @@ export interface BossAnimDef {
   hitCy: number;
 }
 
-export const BOSS_ANIM: Partial<Record<BossId, BossAnimDef>> = {
-  ufo: { url: ufoAnimUrl, meta: ufoAnimMeta as AnimMeta, bodyW: 430, hitAspect: 0.36, hitCy: -6 },
-};
+export const BOSS_ANIM: Partial<Record<BossId, BossAnimDef>> = {};
