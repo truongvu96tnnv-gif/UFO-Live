@@ -1,6 +1,7 @@
 import type { LiveEvent, LiveUser } from "../live/events";
 import { Avatars } from "./avatars";
 import type { Balance } from "./balance";
+import { font } from "./font";
 import { BOSSES, isMilestone, milestoneBoss, nextMilestone, PLANET_EYE, RANDOM_BOSSES, makeBossSprite, type BossDef, type BossId } from "./bosses";
 import { resolveGift, WEAPON_CAP, WEAPON_LABEL } from "./gifts";
 import { approach, clamp, easeInOutCubic, easeOutBack, lerp, pick, rand } from "./math";
@@ -1313,7 +1314,7 @@ export class Game {
       const sayAge = this.time - p.sayT;
       if (p.say && sayAge < 2.6) {
         ctx.globalAlpha = clamp(Math.min(sayAge * 6, (2.6 - sayAge) * 3), 0, 1);
-        ctx.font = "700 20px system-ui, sans-serif";
+        ctx.font = font(600, 20);
         const w = ctx.measureText(p.say).width + 24;
         const bx = clamp(x, w / 2 + 10, W - w / 2 - 10);
         const by = y - r - 34;
@@ -2055,7 +2056,7 @@ export class Game {
         ctx.lineWidth = 2;
         ctx.strokeRect(-17, -7, 34, 14);
         ctx.fillStyle = "#eafff0";
-        ctx.font = "900 13px system-ui, sans-serif";
+        ctx.font = font(700, 13);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("$", 0, 1);
@@ -2451,7 +2452,7 @@ export class Game {
       const k = age / 1.3;
       ctx.globalAlpha = clamp(1 - k * k, 0, 1);
       const s = f.size * (age < 0.12 ? 0.6 + (age / 0.12) * 0.4 : 1);
-      ctx.font = `900 ${s}px system-ui, sans-serif`;
+      ctx.font = font(700, s);
       const half = ctx.measureText(f.text).width / 2 + 12;
       text(ctx, f.text, clamp(f.x, half, W - half), f.y - age * 70, s, f.color, "center", 900);
     }
@@ -2667,14 +2668,15 @@ function drawHeart(ctx: CanvasRenderingContext2D, x: number, y: number, s: numbe
 
 /** Chữ tự thu nhỏ cho vừa bề rộng */
 function fitText(ctx: CanvasRenderingContext2D, str: string, x: number, y: number, size: number, maxW: number, color: string, weight = 900) {
-  ctx.font = `${weight} ${size}px system-ui, "Segoe UI", Roboto, "Noto Sans", sans-serif`;
+  ctx.font = font(weight, size);
+  ctx.letterSpacing = size >= 28 ? "1px" : "0px";
   const w = ctx.measureText(str).width;
   text(ctx, str, x, y, w > maxW ? Math.floor((size * maxW) / w) : size, color, "center", weight);
 }
 
 /** Chữ xuống dòng theo bề rộng (căn giữa) */
 function wrapText(ctx: CanvasRenderingContext2D, str: string, x: number, y: number, maxW: number, size: number, color: string) {
-  ctx.font = `700 ${size}px system-ui, sans-serif`;
+  ctx.font = font(600, size);
   const lines: string[] = [];
   let line = "";
   for (const word of str.split(" ")) {
@@ -2690,7 +2692,8 @@ function wrapText(ctx: CanvasRenderingContext2D, str: string, x: number, y: numb
 
 /** Chữ có viền tối để đọc được trên mọi nền */
 function text(ctx: CanvasRenderingContext2D, str: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = "center", weight = 800) {
-  ctx.font = `${weight} ${size}px system-ui, "Segoe UI", Roboto, "Noto Sans", sans-serif`;
+  ctx.font = font(weight, size);
+  ctx.letterSpacing = size >= 28 ? "1px" : "0px";
   ctx.textAlign = align;
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
@@ -2699,5 +2702,6 @@ function text(ctx: CanvasRenderingContext2D, str: string, x: number, y: number, 
   ctx.strokeText(str, x, y);
   ctx.fillStyle = color;
   ctx.fillText(str, x, y);
+  ctx.letterSpacing = "0px";
 }
 

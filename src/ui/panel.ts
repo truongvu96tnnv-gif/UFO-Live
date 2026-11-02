@@ -1,3 +1,4 @@
+import { FONT_FAMILY } from "../game/font";
 import { GIFTS } from "../game/gifts";
 import type { EventSink, LiveUser } from "../live/events";
 
@@ -12,10 +13,10 @@ const CSS = `
   padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0));
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-family: ${FONT_FAMILY};
 }
 #ufo-pad button, #ufo-gifts button {
-  font: 700 14px/1 system-ui, sans-serif; color: #e8eeff; background: rgba(8, 12, 28, 0.88);
+  font: 600 14px/1 ${FONT_FAMILY}; letter-spacing: 0.02em; color: #e8eeff; background: rgba(8, 12, 28, 0.88);
   border: 1px solid #2c3a66; border-radius: 999px; padding: 10px 14px; cursor: pointer;
 }
 #ufo-pad button:hover { border-color: #9dff7a; }
@@ -26,7 +27,7 @@ const CSS = `
   width: min(560px, 100%); box-sizing: border-box; max-height: 72%; overflow-y: auto;
   padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   background: rgba(14, 14, 22, 0.97); color: #e8eeff; border-radius: 18px 18px 0 0; border-top: 1px solid #2c3a66;
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-family: ${FONT_FAMILY};
 }
 #ufo-gifts header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 #ufo-gifts h2 { font-size: 16px; margin: 0; }

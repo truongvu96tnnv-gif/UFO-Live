@@ -1,4 +1,5 @@
 import { balanceFromQuery } from "./game/balance";
+import { fontsReady } from "./game/font";
 import type { BossId } from "./game/bosses";
 import { GIFTS } from "./game/gifts";
 import { Game, type Phase } from "./game/game";
@@ -11,6 +12,7 @@ import { mountDemoPanel } from "./ui/panel";
 // Bản nhúng (vd trang chơi thử) có thể đặt sẵn tham số qua window.UFO_PRESET thay cho query string
 const preset = (window as unknown as { UFO_PRESET?: string }).UFO_PRESET;
 const q = new URLSearchParams(preset ?? location.search);
+await fontsReady();
 const game = new Game(balanceFromQuery(q));
 game.sfx.muted = q.get("mute") === "1";
 

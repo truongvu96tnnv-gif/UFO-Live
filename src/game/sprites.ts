@@ -1,3 +1,4 @@
+import { font } from "./font";
 import { mulberry32 } from "./math";
 import { GROUND_Y, H, W } from "./stage";
 
@@ -389,7 +390,7 @@ export function makeInitialAvatar(name: string, hue: number, size = 128): Img {
   g.fill();
   const letter = [...(name.trim() || "?")][0].toUpperCase();
   g.fillStyle = "rgba(255,255,255,0.95)";
-  g.font = `800 ${size * 0.52}px system-ui, sans-serif`;
+  g.font = font(700, size * 0.52);
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.fillText(letter, size / 2, size / 2 + size * 0.04);
