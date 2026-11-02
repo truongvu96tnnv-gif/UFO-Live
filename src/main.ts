@@ -5,7 +5,9 @@ import { DemoCrowd } from "./live/demo";
 import type { LiveEvent, LiveUser } from "./live/events";
 import { connectBridge } from "./live/socket";
 
-const q = new URLSearchParams(location.search);
+// Bản nhúng (vd trang chơi thử) có thể đặt sẵn tham số qua window.UFO_PRESET thay cho query string
+const preset = (window as unknown as { UFO_PRESET?: string }).UFO_PRESET;
+const q = new URLSearchParams(preset ?? location.search);
 const game = new Game(balanceFromQuery(q));
 game.sfx.muted = q.get("mute") === "1";
 
@@ -80,6 +82,11 @@ addEventListener("keydown", (e) => {
   else if (k === "]") demo.level = Math.min(3, demo.level + 1);
 });
 addEventListener("pointerdown", () => game.sfx.unlock());
+// chế độ demo: chạm vào màn hình = thả tim (thử trên điện thoại không cần bàn phím)
+const you: LiveUser = { id: "you", name: "Bạn", avatar: "demo:200" };
+canvas.addEventListener("pointerdown", () => {
+  if (game.demo) sink({ type: "like", user: you, count: 5 });
+});
 
 // ---------------- vòng lặp ----------------
 let last = performance.now();
