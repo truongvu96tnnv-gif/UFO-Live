@@ -65,12 +65,22 @@ Mỗi kỹ năng có dòng nhắc nhấp nháy trên HUD (vd. `🐙 CỨU AN: 12
 ## Đồ hoạ
 
 - **Trùm** dùng art vẽ tay trong `src/assets/bosses/*.webp`, tách nền từ `art-source/bosses-sheet.webp` bằng `tools/cut_bosses.py` (model BiRefNet + bước làm sạch: bỏ khói/sương/vạch lưới, khử viền màu nền, phóng 2× làm nét).
+- **Bộ chuyển động theo khung** (sprite sheet): boss có bộ chuyển động thì game dùng nó thay art tĩnh — `idle` (lơ lửng), `move` (bay ngang nhanh), `attack` (bắn trả), `hit` (trúng đòn nặng / giãy chết). Đã có: **UFO Xâm Lược** (16 khung). Nhập bộ mới:
+
+  ```bash
+  .venv/bin/python tools/import_boss_anim.py <thư-mục-có-atlas.json> <boss-id>
+  ```
+
+  rồi thêm 1 dòng vào `BOSS_ANIM` trong `src/game/bosses.ts`. Công cụ tự căn tâm thân từng khung (khung gốc lệch tới ~100 px làm hình nhảy), nới ô, xoá mảnh khung bên cạnh lọt sang, làm mờ mép bị cắt. UFO dùng hoạt ảnh `attack` để cứ 8–12 giây sạc rồi xả 5 tia laser đỏ xuống phố (chỉ hiệu ứng).
 - **Chuyển động trùm** (`src/game/bossfx.ts`) phân tích từ video giới thiệu boss: mỗi trùm có nhịp lơ lửng/chao riêng; UFO phụt 4 luồng phản lực xanh + đèn chạy quanh vành; Đĩa Vàng có 2 vòng năng lượng quay quanh + tia đỏ từ ngọc; Chiến Hạm bay vào từ trái, 2 luồng lửa đuôi + khói; Pháo Đài Tinh Thể có lõi plasma đập, tia điện, 12 mảnh tinh thể bay vòng (che trước/sau); Bạch Tuộc cuộn/duỗi xúc tu chậm (lưới biến dạng); Phi Thuyền Mẹ có 2 vòng con quay chữ X quay quanh vòm + ánh xanh dưới bụng; Hành Tinh xoay chậm, viền lửa lập loè, vành đá vụn bay quanh. Mỗi trùm có lớp hiệu ứng động riêng vẽ chồng lên art: mắt bạch tuộc sáng/chớp, nhiễu sóng khi tàu tàng hình, lõi tinh thể đập + vòng phù văn + khiên, dung nham phập phồng & lõi sạc pháo của hành tinh, đèn khoang phi thuyền mẹ, chớp nòng chiến hạm. Ảnh chưa tải được thì tự dùng model vẽ bằng code.
 - **Khung cảnh** (`src/game/scene.ts`): mây trôi quanh UFO, khói phủ mái nhà, đám cháy trên mái, 4 tháp pháo phòng không xoay nòng theo UFO và bắn đạn vạch đường (càng nhiều người bắn, tháp pháo bắn càng dày), tàn lửa bay lên. Thuần trang trí, không gây sát thương.
 - **Âm thanh** (`src/game/audio/`, tự tổng hợp bằng WebAudio — không file nhạc, không lo bản quyền):
   - *Nhạc nền đổi theo trận* (chuyển ở đầu ô nhịp): chờ 90 BPM êm · vào trận 112 BPM (Am–F–C–G, kick 4/4, bass nảy, arpeggio) · UFO sắp chạm đất 128 BPM dồn dập + tiếng rít dâng · trùm 100 BPM nửa nhịp nặng, kèn đồng trầm, hợp xướng · kèn chiến thắng / nhạc thua. Đạn vàng làm nhạc sáng hơn.
   - *Không khí*: gió đêm thành phố, tiếng động cơ UFO trầm & to dần khi hạ thấp (mỗi trùm âm sắc riêng), pháo phòng không nổ xa.
   - *Hiệu ứng*: laser, tên lửa rít (to theo cỡ), nổ 3 lớp có vang, UFO nổ tung nhiều đợt, pháo hoa, xu, đạn vàng, rương xu, 3 loại tia năng lượng, còi báo động, "braam" khi trùm xuất hiện, tiếng kỹ năng trùm (tóm, xẹt điện, khiên pha lê, kính vỡ, UFO con, sạc mắt hủy diệt).
+  - *Giọng riêng từng boss* (`audio/voices.ts`): xuất hiện · bị đau · bắn trả · gục ngã — UFO tiếng theremin rền rĩ, Đĩa Vàng chiêng & kèn hoàng gia + mưa xu khi chết, Bạch Tuộc gào (formant) & nhớp nháp, Tàu Tàng Hình phản lực lướt + ra-đa, Chiến Hạm còi tàu chiến + thép rên, Tinh Thể hợp âm pha lê + vỡ vụn, Phi Thuyền Mẹ "BRAAAM" kép, Hành Tinh động đất + hợp xướng.
+  - *Trúng đạn theo chất liệu*: kim loại (keng + đạn nảy "piu"), vàng (chuông), thịt (bẹp), pha lê (tinh tang), đá (ục + vụn).
+  - *5 kiểu súng laser* — pew, zap (điện), blaster, plasma, rail — mỗi người xem cố định 1 kiểu theo tài khoản; đạn vàng thêm tiếng chuông. Tên lửa hoa hồng & bình luận huýt sáo "vèo", bom pháo giấy "bốp".
   - Bộ nén + chặn đỉnh ở cuối để không vỡ tiếng; tiếng đặt trái–phải theo vị trí trên màn.
   - Phím **M** tắt/bật toàn bộ, **U** tắt/bật nhạc; tham số `?music=0`, `?vol=0.5` (âm lượng nhạc).
 - **Font** Chakra Petch (đủ dấu tiếng Việt), đóng gói sẵn.
@@ -153,11 +163,13 @@ src/game/game.ts       toàn bộ luật chơi + vẽ (intro / battle / win / lo
 src/game/sprites.ts    đĩa bay, bong bóng, nền thành phố (vẽ bằng code)
 src/game/balance.ts    bảng cân bằng (máu, sát thương, quỹ phòng thủ)
 src/game/gifts.ts      danh mục quà → vũ khí, trần sát thương
-src/game/bosses.ts     danh sách trùm, mốc chuỗi thắng, model vẽ bằng code + bảng art (BOSS_ART)
+src/game/bosses.ts     danh sách trùm, mốc chuỗi thắng, model vẽ bằng code + bảng art (BOSS_ART) + bộ chuyển động (BOSS_ANIM)
+src/game/anim.ts       trình phát hoạt ảnh theo khung
 src/game/scene.ts      mây khói, tháp pháo phòng không, đám cháy, tàn lửa
 src/assets/bosses/     art trùm đã tách nền (webp)
 art-source/            ảnh gốc của bộ asset
 tools/cut_bosses.py    script tách art trùm
+tools/import_boss_anim.py  nhập bộ chuyển động (sprite sheet + atlas.json) cho 1 boss
 src/game/avatars.ts    ảnh đại diện tròn (tải qua /avatar)
 src/game/sfx.ts        âm thanh tổng hợp WebAudio
 src/live/              kiểu sự kiện, WebSocket client, người xem giả lập

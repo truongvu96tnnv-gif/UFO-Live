@@ -1,5 +1,6 @@
 import { Engine } from "./audio/engine";
 import * as fx from "./audio/fx";
+import * as vo from "./audio/voices";
 import { Music, type Mode } from "./audio/music";
 import type { BossId } from "./bosses";
 
@@ -157,9 +158,39 @@ export class Sfx {
 
   // ---------------- hiệu ứng (giữ tên cũ để game gọi) ----------------
 
-  laser(x?: number) {
+  /** kind: kiểu súng riêng của người xem (xem voices.LASER_KINDS) */
+  laser(x?: number, kind: vo.LaserKind = "pew", gold = false) {
     const e = this.ok;
-    if (e && this.gate("laser", 55)) fx.laser(e, e.now, x);
+    if (e && this.gate("laser", 45)) vo.laserShot(e, e.now, kind, x, gold);
+  }
+  whistle(x?: number, v = 1) {
+    const e = this.ok;
+    if (e && this.gate("whistle", 90)) vo.whistle(e, e.now, x, v);
+  }
+  popper(x?: number) {
+    const e = this.ok;
+    if (e) vo.popper(e, e.now, x);
+  }
+  /** tiếng trúng đạn theo chất liệu thân boss */
+  impact(boss: BossId, kind: "laser" | "rocket" | "heavy", x?: number) {
+    const e = this.ok;
+    if (e && this.gate(`imp${kind}`, kind === "laser" ? 70 : 60)) vo.impact(e, e.now, vo.MATERIAL[boss], kind, x);
+  }
+  bossIntro(id: BossId) {
+    const e = this.ok;
+    if (e) vo.bossIntro(e, e.now, id);
+  }
+  bossHurt(id: BossId, x?: number) {
+    const e = this.ok;
+    if (e && this.gate("hurt", 900)) vo.bossHurt(e, e.now, id, x);
+  }
+  bossAttack(id: BossId) {
+    const e = this.ok;
+    if (e) vo.bossAttack(e, e.now, id);
+  }
+  bossDeath(id: BossId) {
+    const e = this.ok;
+    if (e) vo.bossDeath(e, e.now, id);
   }
   heart(x?: number) {
     const e = this.ok;

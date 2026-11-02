@@ -682,3 +682,24 @@ export const BOSS_ART: Record<BossId, BossArt> = {
   mother: { url: artMother, width: 840, cx: 0.5, cy: 0.5, hitRx: 380, hitRy: 100, hitCy: -15, belly: 200 },
   planet: { url: artPlanet, width: 460, cx: 0.505, cy: 0.51, hitRx: 175, hitRy: 175, hitCy: 0, belly: 190 },
 };
+
+// ======================= bộ chuyển động (sprite sheet theo khung) =======================
+// Nhập bằng: tools/import_boss_anim.py <thư-mục-bộ-chuyển-động> <boss-id>. Boss có bộ chuyển động thì game dùng nó
+// thay cho art tĩnh; boss chưa có thì vẫn dùng art tĩnh + hiệu ứng code như cũ.
+import type { AnimMeta } from "./anim";
+import ufoAnimMeta from "../assets/bosses/ufo-anim.json";
+import ufoAnimUrl from "../assets/bosses/ufo-anim.webp";
+
+export interface BossAnimDef {
+  url: string;
+  meta: AnimMeta;
+  /** bề rộng thân hiển thị trên sân khấu (px) */
+  bodyW: number;
+  /** vùng trúng đạn: tỉ lệ cao/rộng của thân & lệch tâm dọc (px sân khấu) */
+  hitAspect: number;
+  hitCy: number;
+}
+
+export const BOSS_ANIM: Partial<Record<BossId, BossAnimDef>> = {
+  ufo: { url: ufoAnimUrl, meta: ufoAnimMeta as AnimMeta, bodyW: 430, hitAspect: 0.36, hitCy: -6 },
+};
