@@ -4,6 +4,7 @@ import type { Balance } from "./balance";
 import { font } from "./font";
 import { Scene } from "./scene";
 import { drawWarped } from "./warp";
+import { bossOver, bossUnder, MOTION, type FxCtx } from "./bossfx";
 import { BOSS_ART, BOSSES, isMilestone, milestoneBoss, nextMilestone, PLANET_EYE, RANDOM_BOSSES, makeBossSprite, type BossDef, type BossId } from "./bosses";
 import { resolveGift, WEAPON_CAP, WEAPON_LABEL } from "./gifts";
 import { approach, clamp, easeInOutCubic, easeOutBack, lerp, pick, rand } from "./math";
@@ -948,6 +949,10 @@ export class Game {
 
     this.updateShots(dt);
     this.updateFx(dt);
+    if (this.ufoAlive && this.bossDef.id === "cruiser" && this.art() && Math.random() < dt * 9) {
+      const half = BOSS_ART.cruiser.width / 2;
+      this.smoke.push({ x: this.ux - half - rand(10, 60), y: this.uy + rand(-30, 10), vx: rand(-90, -40), vy: rand(-25, 5), life: 0, max: rand(1.2, 2.2), size: rand(14, 24) });
+    }
     const geo = this.geo;
     this.scene.update(dt, { x: this.ux, y: this.uy + geo.cy, rx: geo.rx, ry: geo.ry, alive: this.ufoAlive && this.uy > 0, fighting: this.phase === "battle" });
     for (const p of this.people) p.pulse = Math.max(0, p.pulse - dt * 2.5);
@@ -963,9 +968,16 @@ export class Game {
   private updateIntro(dt: number) {
     const k = easeInOutCubic(clamp(this.phaseT / 2.4, 0, 1));
     const tx = CX + 180 * Math.sin(this.time * 0.6);
-    this.ux = W + 420 + (tx - W - 420) * k;
-    this.uy = -300 + (UFO_START_Y + 300) * k - Math.sin(k * Math.PI) * 120;
-    this.tilt = (1 - k) * -0.25;
+    if (this.bossDef.id === "cruiser") {
+      // chiến hạm lướt ngang vào từ bên trái như trong video
+      this.ux = -560 + (tx + 560) * k;
+      this.uy = UFO_START_Y + 60 * (1 - k) - Math.sin(k * Math.PI) * 30;
+      this.tilt = (1 - k) * 0.06;
+    } else {
+      this.ux = W + 420 + (tx - W - 420) * k;
+      this.uy = -300 + (UFO_START_Y + 300) * k - Math.sin(k * Math.PI) * 120;
+      this.tilt = (1 - k) * -0.25;
+    }
     if (this.at("siren2", 1.4)) this.sfx.siren();
     if (this.phaseT >= this.introDur) this.setPhase("battle");
   }
@@ -1807,10 +1819,11 @@ export class Game {
     const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, cruiser: 1, crystal: 6, mother: 0, planet: 1 };
     ctx.save();
     const organic = d.id === "octopus";
-    // bạch tuộc bơi kiểu sứa: mỗi nhịp co thân thì nhấp lên, không nghiêng cứng như tấm bìa
-    const swim = Math.sin(t * 2.4);
-    ctx.translate(this.ux, this.uy + (organic ? -swim * 10 : Math.sin(t * 1.6) * 4));
-    ctx.rotate(this.tilt * (organic ? 0.15 : 0.6));
+    // nhịp lơ lửng & chao nghiêng riêng từng trùm (đo từ video giới thiệu boss)
+    const mo = MOTION[d.id];
+    const TAU = Math.PI * 2;
+    ctx.translate(this.ux, this.uy + Math.sin(t * mo.bobHz * TAU) * mo.bob);
+    ctx.rotate(this.tilt * (organic ? 0.15 : 0.6) + Math.sin(t * mo.rollHz * TAU + 1) * mo.roll + t * mo.spin);
     ctx.imageSmoothingQuality = "high";
     // hào quang sau lưng (trùm mốc rực hơn)
     ctx.save();
@@ -1823,6 +1836,8 @@ export class Game {
       ctx.drawImage(this.glows[d.id === "gold" ? 0 : danger ? 1 : 4], -w * 0.28, g.belly - 50, w * 0.56, 90);
     }
     ctx.restore();
+    const fx: FxCtx = { t, w, h, at, glows: this.glows, alpha, danger };
+    bossUnder(ctx, d.id, fx);
 
     // thân: tàng hình thì nhiễu sóng thành từng lát lệch ngang
     ctx.globalAlpha = alpha;
@@ -1846,7 +1861,7 @@ export class Game {
       case "ufo": {
         // vành đèn đỏ thở theo nhịp, gần đất thì nháy gấp
         ctx.globalAlpha = (danger ? 0.5 + 0.5 * Math.sin(t * 14) : 0.35 + 0.25 * Math.sin(t * 3)) * alpha;
-        const [bx, by] = at(0.5, 0.72);
+        const [bx, by] = at(0.5, 0.77);
         ctx.drawImage(this.glows[1], bx - w * 0.42, by - 26, w * 0.84, 52);
         break;
       }
@@ -1866,39 +1881,33 @@ export class Game {
         const blink = t % 4 < 0.15 ? 0.1 : 1;
         for (const fx of [0.385, 0.62]) {
           ctx.globalAlpha = (0.45 + 0.25 * Math.sin(t * 5)) * blink * alpha;
-          const [ex, ey] = at(fx, 0.31);
+          const [ex, ey] = at(fx, 0.28);
           ctx.drawImage(this.glows[0], ex - 40, ey - 32, 80, 64);
         }
         break;
       }
       case "stealth": {
         ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 6);
-        const [ex, ey] = at(0.5, 0.59);
+        const [ex, ey] = at(0.5, 0.46);
         ctx.drawImage(this.glows[1], ex - 70, ey - 34, 140, 68);
         break;
       }
       case "cruiser": {
         // ống phụt ở đuôi (bên trái) & chớp nòng 4 tháp pháo trên boong
-        const [ex, ey] = at(0.01, 0.42);
+        const [ex, ey] = at(0.01, 0.49);
         ctx.globalAlpha = 0.7 + Math.random() * 0.3;
         ctx.drawImage(this.glows[0], ex - 100, ey - 40, 120, 80);
         if (this.muzzle > 0) {
           ctx.globalAlpha = this.muzzle;
-          for (const [fx, fy] of [[0.22, 0.24], [0.29, 0.27], [0.5, 0.31], [0.6, 0.34]] as const) {
-            const [mx, my] = at(fx + 0.04, fy - 0.03);
+          for (const [fx, fy] of [[0.22, 0.22], [0.29, 0.24], [0.48, 0.3], [0.57, 0.33]] as const) {
+            const [mx, my] = at(fx + 0.04, fy - 0.04);
             ctx.drawImage(this.glows[1], mx - 40, my - 40, 80, 80);
           }
         }
         break;
       }
       case "crystal": {
-        ctx.globalAlpha = 0.45 + 0.3 * Math.sin(t * 3);
-        ctx.drawImage(this.glows[6], -150, -150, 300, 300);
-        ctx.globalAlpha = 1;
-        ctx.save();
-        ctx.scale(0.8, 0.8);
-        this.drawCrystalRings(ctx, true);
-        ctx.restore();
+        // lõi plasma & mảnh tinh thể bay vòng: xem bossfx.ts
         if (this.shieldHp > 0) {
           const k = this.shieldHp / Math.max(1, this.shieldMax);
           const R = 270;
@@ -1921,12 +1930,12 @@ export class Game {
       case "mother": {
         for (let i = 0; i < 5; i++) {
           ctx.globalAlpha = (0.5 + 0.5 * Math.sin(t * 3 + i)) * alpha;
-          const [hx, hy] = at(0.32 + i * 0.09, 0.66);
+          const [hx, hy] = at(0.32 + i * 0.09, 0.6);
           ctx.drawImage(this.glows[0], hx - 26, hy - 14, 52, 28);
         }
         ctx.globalAlpha = Math.sin(t * 4) > 0 ? 1 : 0.2;
-        for (const fx of [0.29, 0.71]) {
-          const [tx, ty] = at(fx, 0.05);
+        for (const fx of [0.29, 0.72]) {
+          const [tx, ty] = at(fx, 0.07);
           ctx.drawImage(this.glows[1], tx - 16, ty - 16, 32, 32);
         }
         break;
@@ -1954,6 +1963,10 @@ export class Game {
         break;
       }
     }
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    bossOver(ctx, d.id, fx);
+    ctx.globalCompositeOperation = "lighter";
     // hư hại nặng: lửa cháy trên thân
     if (this.hp / this.hpMax < 0.3) {
       for (const [fx, fy] of [[-0.6, -0.2], [0.45, 0.1], [0.1, -0.5]] as const) {
@@ -1972,9 +1985,9 @@ export class Game {
    */
   private octopusWarp(w: number, h: number, t: number) {
     const ROOT = 0.5;
-    const swim = Math.sin(t * 2.4);
-    const kick = Math.sin(t * 2.4 - 0.9);
-    const wild = this.grab ? 1.6 : 1;
+    const swim = Math.sin(t * 1.5);
+    const kick = Math.sin(t * 1.5 - 0.9);
+    const wild = this.grab ? 1.7 : 1;
     return (u: number, v: number): [number, number] => {
       const x = (u - 0.5) * w;
       if (v < ROOT) {
@@ -1983,10 +1996,13 @@ export class Game {
       }
       const s = (v - ROOT) / (1 - ROOT);
       const e = s * s;
-      const wave = Math.sin(t * 2.8 * wild - s * 4.5 + u * 10) * 30 * wild * e;
-      const spread = x * 0.18 * e * kick;
-      const curl = Math.sin(t * 1.3 + u * 6) * 10 * e;
-      return [wave + spread + curl, -kick * 22 * e + Math.sin(t * 3.1 + u * 7) * 6 * s];
+      // sóng chạy chậm từ gốc ra ngọn + ngọn cuộn vòng (lệch pha theo từng xúc tu) — như video
+      const ph = u * 11;
+      const wave = Math.sin(t * 1.7 * wild - s * 3.6 + ph) * 26 * wild * e;
+      const spread = x * 0.12 * e * kick;
+      const curlA = t * 1.1 + ph * 0.7;
+      const curl = s * s * s * 34 * wild;
+      return [wave + spread + Math.cos(curlA) * curl, -kick * 14 * e + Math.sin(curlA) * curl * 0.8];
     };
   }
 
