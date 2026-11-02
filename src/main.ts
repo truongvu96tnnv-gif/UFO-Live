@@ -54,7 +54,7 @@ help.innerHTML = [
   "Quà: 1 hoa hồng ×5 · 2 tim ngón tay · 3 nước hoa · 4 pháo giấy · 5 kính râm · 6 súng bắn tiền · 7 thiên hà · 8 vũ trụ",
   "F: follow · S: chia sẻ · J: thêm người xem giả",
   "D: bật/tắt người xem giả · [ ]: độ đông demo",
-  "R: chơi lại từ đầu · B: vòng sau là UFO VÀNG · N: qua pha tiếp",
+  "R: chơi lại từ đầu (xoá tỉ số & chuỗi) · B: chọn trùm cho vòng sau (bấm tiếp để đổi) · N: qua pha tiếp",
   "M: tắt/bật âm thanh · H: ẩn/hiện bảng này",
 ].join("\n");
 const GIFT_KEYS: Record<string, [string, number]> = {
@@ -84,7 +84,7 @@ addEventListener("keydown", (e) => {
   else if (k === "s") sink({ type: "share", user: me });
   else if (k === "j") sink({ type: "join", user: { id: `guest-${++joinN}`, name: `Khách ${joinN}`, avatar: `demo:${(joinN * 67) % 360}` } });
   else if (k === "r") game.restart();
-  else if (k === "b") game.forceBoss();
+  else if (k === "b") game.cycleBoss();
   else if (k === "m") game.sfx.muted = !game.sfx.muted;
   else if (k === "n") {
     const order: Phase[] = ["intro", "battle", "win", "break"];

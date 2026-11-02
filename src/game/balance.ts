@@ -20,7 +20,7 @@ export interface Balance {
   /** follow / chia sẻ đẩy UFO lùi lên bao nhiêu phần quãng đường */
   followPush: number;
   sharePush: number;
-  /** xác suất 1 vòng là UFO VÀNG (trùm: máu ×2.2) */
+  /** xác suất 1 vòng thường gặp trùm ngẫu nhiên (Đĩa Vàng / Bạch Tuộc / Tàu Tàng Hình) */
   bossChance: number;
 }
 
@@ -36,7 +36,7 @@ export const DEFAULT_BALANCE: Balance = {
   goldTime: 12,
   followPush: 0.04,
   sharePush: 0.06,
-  bossChance: 0.08,
+  bossChance: 0.15,
 };
 
 export function balanceFromQuery(q: URLSearchParams): Balance {

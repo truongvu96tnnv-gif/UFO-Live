@@ -39,11 +39,28 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 - **Thắng**: slow-motion, nổ dây chuyền, nổ lớn, mảnh vỡ, pháo hoa; vinh danh **người ra đòn kết liễu** + top 3 xạ thủ.
 - **Thua**: tia hút xanh bật, mọi bong bóng bị hút xoắn ốc vào bụng đĩa — *"CẢ LIVE ĐÃ BỊ BẮT CÓC!"*, rồi mọi người được thả về ở vòng sau.
 - Còn 25% độ cao: màn đỏ nhấp nháy, còi báo động, "THẢ TIM NGAY! CÒN X GIÂY" — khoảnh khắc lật kèo phút chót dễ cắt clip.
-- **UFO VÀNG** (trùm, máu ×2,2): ~8% số vòng và mỗi vòng thứ 10.
+- **Trùm**: có trùm theo mốc chuỗi thắng và trùm ngẫu nhiên. Mỗi trùm có model và kỹ năng riêng (bảng bên dưới).
 - **Tự cân bằng**: máu UFO = (260 + 30 × số người tương tác trong 2 phút) × hệ số độ khó; thắng → hệ số ×1,18, thua → ×0,8. Phòng đông hay vắng đều có trận sát nút.
 - **Quà mạnh nhưng không "mua thắng"**: mỗi lượt tặng gây tối đa 12% (quà nhỏ) / 20% / 35% / 60% (Pháo Trái Đất) / 85% (Siêu vũ khí) máu tối đa. ĐẠN VÀNG chỉ nhân đôi tim & bình luận, không nhân đôi quà.
 
 > ⚠️ Không gắn quà/tim với cơ hội nhận **phần thưởng có giá trị thật** (tiền, voucher…) — dễ bị coi là cờ bạc / vi phạm chính sách quà tặng LIVE của TikTok. Phần thưởng trong game chỉ là vinh danh trên màn hình.
+
+## Trùm
+
+**Chuỗi thắng** = số vòng thắng liên tiếp (thua 1 vòng là về 0). Tỉ số, chuỗi và kỷ lục được lưu trong trình duyệt nên tải lại trang giữa buổi live không mất. HUD luôn hiện `🔥 CHUỖI 3/5`, màn nghỉ nhắc "thắng thêm 2 trận gặp Chiến Hạm Đỏ". Thua trùm thì màn hình báo chuỗi bị cắt đứt.
+
+| Trùm | Xuất hiện | Model | Kỹ năng | Máu / thời gian |
+|---|---|---|---|---|
+| UFO Xâm Lược | vòng thường | đĩa bay thép | — | ×1 / ×1 |
+| Đĩa Vàng Hoàng Gia | ngẫu nhiên | đĩa mạ vàng, vương miện gai, ngọc đỏ | **Giáp vàng**: máu dày | ×2,2 / ×1,15 |
+| Bạch Tuộc Vũ Trụ | ngẫu nhiên | đầu thịt tím lốm đốm, mắt vàng con ngươi dọc, 8 xúc tu uốn lượn | **Xúc tu tóm người**: nhấc 1 bong bóng lên; cả phòng dồn đủ sát thương trong 6 s thì cứu được, không thì người đó bị bắt và UFO hạ thêm 3 km | ×1,8 / ×1,1 |
+| Tàu Tàng Hình Bóng Đêm | ngẫu nhiên | cánh bay chữ V đen nhám viền neon | **Tàng hình** 4 s trong mỗi 11 s: 70% sát thương bị trượt | ×1,6 / ×0,9 |
+| Chiến Hạm Đỏ | chuỗi **5** | chiến hạm dài, 4 tháp pháo, ống phụt xanh | **Pháo phản công** mỗi 8 s: 3 cầu điện bắn vào bong bóng người xem, ai trúng bị choáng 5 s (sát thương −50%) | ×2 / ×1,3 |
+| Pháo Đài Tinh Thể | chuỗi **10** | cụm tinh thể lục giác, vòng phù văn quay | **Khiên tinh thể** = 12% máu, hứng sát thương trước; vỡ thì 12 s sau tự hồi | ×2,4 / ×1,4 |
+| Phi Thuyền Mẹ | chuỗi **20** | đĩa khổng lồ 3 tầng, vòm kính, khoang chứa phát sáng | **UFO con**: mỗi 7 s thả 2 chiếc lao xuống phố; chạm phố là bắt 1 người. ~45% đạn tự nhắm UFO con | ×2,8 / ×1,5 |
+| Hành Tinh Hủy Diệt | chuỗi **30, 50, 75, 100…** | khối cầu nứt dung nham, vành đai nghiêng, mắt khổng lồ | **Mắt hủy diệt** sạc 5 s: dồn đủ 7% máu để ngắt, không thì tia đỏ bắn xuống, UFO tụt 8 km | ×3,2 / ×1,6 |
+
+Mỗi kỹ năng có dòng nhắc nhấp nháy trên HUD (vd. `🐙 CỨU AN: 120/399 · còn 4s`) để chủ phòng hô hào cả phòng.
 
 ## Chạy thử (không cần lên live)
 
@@ -81,12 +98,12 @@ Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phò
 | 1 … 8 | hoa hồng ×5 · tim ngón tay · nước hoa · pháo giấy · kính râm · súng bắn tiền · thiên hà · vũ trụ |
 | F / S / J | thử follow / chia sẻ / thêm người xem |
 | D, `[` `]` | bật/tắt người xem giả, đổi độ đông |
-| R / B / N | chơi lại / vòng sau UFO VÀNG / qua pha tiếp |
+| R / B / N | chơi lại (xoá tỉ số & chuỗi) / chọn trùm cho vòng sau (bấm tiếp để đổi) / qua pha tiếp |
 | M / H | tắt âm / bảng trợ giúp |
 
 ### Tham số URL
 
-`?demo=1&crowd=0..3` người xem giả · `time=75` thời gian hạ (giây) · `hp=260` máu cơ bản · `hpv=30` máu thêm mỗi người xem · `like=1` `chat=4` `gift=12` sát thương (gift = mỗi xu) · `fund=100` mốc quỹ đầu tiên · `boss=0.08` xác suất UFO VÀNG · `mute=1` · `ws=ws://host:port/ws` địa chỉ bridge khác.
+`?demo=1&crowd=0..3` người xem giả · `time=75` thời gian hạ (giây) · `hp=260` máu cơ bản · `hpv=30` máu thêm mỗi người xem · `like=1` `chat=4` `gift=12` sát thương (gift = mỗi xu) · `fund=100` mốc quỹ đầu tiên · `boss=0.15` xác suất vòng thường gặp trùm ngẫu nhiên · `mute=1` · `ws=ws://host:port/ws` địa chỉ bridge khác.
 
 ### Biến môi trường của bridge
 
@@ -122,6 +139,7 @@ src/game/game.ts       toàn bộ luật chơi + vẽ (intro / battle / win / lo
 src/game/sprites.ts    đĩa bay, bong bóng, nền thành phố (vẽ bằng code)
 src/game/balance.ts    bảng cân bằng (máu, sát thương, quỹ phòng thủ)
 src/game/gifts.ts      danh mục quà → vũ khí, trần sát thương
+src/game/bosses.ts     danh sách trùm, mốc chuỗi thắng, model vẽ bằng code
 src/game/avatars.ts    ảnh đại diện tròn (tải qua /avatar)
 src/game/sfx.ts        âm thanh tổng hợp WebAudio
 src/live/              kiểu sự kiện, WebSocket client, người xem giả lập
