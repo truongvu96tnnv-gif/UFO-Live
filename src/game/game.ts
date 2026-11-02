@@ -268,6 +268,8 @@ export class Game {
   private webHp = 0;
   private webMax = 0;
   private webT0 = -99;
+  /** lúc rồng phun hơi thở hư không */
+  private breathT = -99;
   private drones: Drone[] = [];
   private charge: { t0: number; need: number; dealt: number } | null = null;
   private cloak = 0;
@@ -340,6 +342,7 @@ export class Game {
   }
 
   private bossLabel() {
+    if (this.bossDef.super) return `TRÙM SIÊU CẤP · CHUỖI ${this.bossMilestone}`;
     return this.bossDef.kind === "milestone" ? `TRÙM CHUỖI ${this.bossMilestone}` : "TRÙM NGẪU NHIÊN";
   }
 
@@ -1336,6 +1339,7 @@ export class Game {
     this.drawAbilities(ctx);
     this.drawEnemyShots(ctx);
     this.drawWeb(ctx);
+    this.drawBreath(ctx);
     this.drawBeams(ctx);
     this.drawCrates(ctx);
     this.drawShots(ctx, true);
@@ -1700,9 +1704,75 @@ export class Game {
         }
         break;
       }
+      case "breath": {
+        // Rồng Không Gian: hít sâu 4 giây; đủ sát thương thì ngắt, không thì phun hơi thở hư không quét cả phố
+        if (!this.charge && now >= this.abilityT) {
+          const need = Math.round(this.hpMax * 0.06);
+          this.charge = { t0: now, need, dealt: 0 };
+          this.toast("🐉 RỒNG ĐANG HÍT SÂU!", `Dồn ${fmt(need)} sát thương trong 4s để ngắt`, d.color, undefined, 3);
+          this.sfx.roar(false);
+        }
+        const c = this.charge;
+        if (c) {
+          if (c.dealt >= c.need) {
+            this.charge = null;
+            this.abilityT = now + 14;
+            this.toast("✅ RỒNG BỊ NGẮT HƠI!", "Cả phòng chặn được hơi thở hư không", "#9dff7a", undefined, 3);
+            this.sparks(...this.mouthPos(), 50, 800);
+            this.sfx.golden();
+          } else if (now - c.t0 >= 4) {
+            this.charge = null;
+            this.abilityT = now + 14;
+            this.breathT = now;
+            this.progress = Math.min(1, this.progress + 0.06);
+            for (const p of this.freePeople()) this.stun.set(p.user.id, now + 6);
+            this.shake = 30;
+            this.flash = 0.35;
+            this.sfx.breath();
+            this.toast("🌌 HƠI THỞ HƯ KHÔNG!", "Cả phòng bị choáng 6s · UFO tụt 6 km", d.color, undefined, 3);
+          }
+        }
+        break;
+      }
       default:
         break;
     }
+  }
+
+  /** miệng rồng (px sân khấu) */
+  private mouthPos(): [number, number] {
+    const a = BOSS_ART.dragon;
+    const img = this.art("dragon");
+    const h = img ? (a.width * img.naturalHeight) / img.naturalWidth : a.width;
+    return [this.ux + (0.6 - a.cx) * a.width, this.uy + (0.29 - a.cy) * h];
+  }
+
+  /** hơi thở hư không: luồng sáng tím quét ngang thành phố trong 1,4 giây */
+  private drawBreath(ctx: CanvasRenderingContext2D) {
+    const age = this.time - this.breathT;
+    if (age < 0 || age > 1.4 || !this.ufoAlive) return;
+    const [mx, my] = this.mouthPos();
+    const k = age < 0.15 ? age / 0.15 : 1 - (age - 0.15) / 1.25;
+    const sweep = -0.9 + (age / 1.4) * 1.8;
+    const tx = CX + sweep * W * 0.6;
+    const ty = PEOPLE_Y1;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+    for (const [w, col] of [[220, "rgba(120,60,255,0.18)"], [120, "rgba(170,110,255,0.35)"], [50, "rgba(230,210,255,0.85)"]] as const) {
+      ctx.globalAlpha = k;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.lineTo(tx, ty);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = k;
+    ctx.drawImage(this.glows[5], tx - 220, ty - 120, 440, 240);
+    ctx.drawImage(this.glows[2], mx - 60, my - 60, 120, 120);
+    ctx.restore();
+    if (Math.random() < 0.6) this.sparks(tx + rand(-80, 80), ty, 3, 400);
   }
 
   /** Boss có hoạt ảnh "attack": cứ 8–12 giây sạc rồi xả 5 tia laser đỏ xuống phố (hiệu ứng, không trừ gì) */
@@ -1745,13 +1815,14 @@ export class Game {
   private abilityLine(): [string, string] | null {
     const now = this.time;
     if (this.grab) return [`🐙 CỨU ${short(this.grab.p.user.name, 12).toUpperCase()}: ${fmt(this.grab.dealt)}/${fmt(this.grab.need)} · còn ${Math.ceil(6 - (now - this.grab.t0))}s`, "#d58bff"];
+    if (this.charge && this.bossDef.ability === "breath") return [`🐉 NGẮT HƠI RỒNG: ${fmt(this.charge.dealt)}/${fmt(this.charge.need)} · còn ${Math.ceil(4 - (now - this.charge.t0))}s`, "#b98cff"];
     if (this.charge) return [`👁 NGẮT SẠC: ${fmt(this.charge.dealt)}/${fmt(this.charge.need)} · còn ${Math.ceil(5 - (now - this.charge.t0))}s`, "#ff5a5a"];
     if (this.cloaked) return ["👻 TÀU ĐANG TÀNG HÌNH — 70% ĐẠN BẮN TRƯỢT!", "#7fd8ff"];
     if (this.webHp > 0) return [`🕸 LƯỚI TƠ ${fmt(this.webHp)} — BÌNH LUẬN & QUÀ ĐỂ XÉ!`, "#9dff7a"];
     if (this.shieldHp > 0) return [`🛡 KHIÊN TINH THỂ: ${fmt(this.shieldHp)} — PHÁ KHIÊN TRƯỚC!`, "#7ff0ff"];
     const drones = this.drones.filter((d) => !d.dead).length;
     if (drones) return [`🛸 ${drones} UFO CON ĐANG LAO XUỐNG — BẮN RƠI NGAY!`, "#ffb15a"];
-    for (const [, t] of this.stun) if (t > now) return ["⚡ CHIẾN HẠM PHẢN CÔNG — NGƯỜI BỊ CHOÁNG GIẢM 50% SÁT THƯƠNG", "#ff7a8a"];
+    for (const [, t] of this.stun) if (t > now) return this.bossDef.id === "dragon" ? ["🌌 HƠI THỞ HƯ KHÔNG — NGƯỜI BỊ CHOÁNG GIẢM 50% SÁT THƯƠNG", "#b98cff"] : ["⚡ NGƯỜI BỊ CHOÁNG GIẢM 50% SÁT THƯƠNG", "#ff7a8a"];
     return null;
   }
 
@@ -1970,9 +2041,9 @@ export class Game {
     const at = (fx: number, fy: number): [number, number] => [ox + w * fx, oy + h * fy];
     const danger = this.phase === "battle" && this.progress > 0.75;
     const alpha = 1 - 0.85 * this.cloak;
-    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, spider: 4, crystal: 6, mother: 0, planet: 1 };
+    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, spider: 4, dragon: 5, crystal: 6, mother: 0, planet: 1 };
     ctx.save();
-    const organic = d.id === "octopus" || d.id === "spider";
+    const organic = d.id === "octopus" || d.id === "spider" || d.id === "dragon";
     // nhịp lơ lửng & chao nghiêng riêng từng trùm (đo từ video giới thiệu boss)
     const mo = MOTION[d.id];
     const TAU = Math.PI * 2;
@@ -2001,7 +2072,10 @@ export class Game {
         const jx = (Math.random() - 0.5) * 40 * this.cloak;
         ctx.drawImage(img, 0, (img.naturalHeight * i) / n, img.naturalWidth, img.naturalHeight / n, ox + jx, oy + (h * i) / n, w, h / n);
       }
-    } else if (organic) drawWarped(ctx, img, ox, oy, w, h, d.id === "spider" ? 10 : 8, 12, d.id === "spider" ? this.spiderWarp(w, h, t) : this.octopusWarp(w, h, t));
+    } else if (organic) {
+      const warp = d.id === "spider" ? this.spiderWarp(w, h, t) : d.id === "dragon" ? this.dragonWarp(w, h, t) : this.octopusWarp(w, h, t);
+      drawWarped(ctx, img, ox, oy, w, h, d.id === "dragon" ? 12 : d.id === "spider" ? 10 : 8, 12, warp);
+    }
     else ctx.drawImage(img, ox, oy, w, h);
     ctx.globalCompositeOperation = "lighter";
     if (this.hitFlash > 0.02) {
@@ -2126,6 +2200,47 @@ export class Game {
   /**
    * Chân nhện bò: phần dưới ảnh (chân) nhấc–đặt so le từng cặp, ngọn chân cào nhẹ; súng trên lưng giật khi giăng tơ.
    */
+  /**
+   * Rồng: 2 cánh vỗ (xoay quanh vai — đầu cánh đi xa nhất), ngực phập phồng, đuôi quẫy,
+   * đầu rướn lên khi đang hít hơi thở hư không.
+   */
+  private dragonWarp(w: number, h: number, t: number) {
+    const flap = Math.sin(t * 2.2);
+    const inhale = this.charge && this.bossDef.ability === "breath" ? clamp((t - this.charge.t0) / 4, 0, 1) : 0;
+    const shoulders: [number, number, number][] = [[0.31, 0.42, -1], [0.63, 0.4, 1]];
+    return (u: number, v: number): [number, number] => {
+      let dx = 0;
+      let dy = 0;
+      for (const [su, sv, side] of shoulders) {
+        // vùng cánh: phía ngoài vai & phía trên hông
+        const out = side < 0 ? su - u : u - su;
+        if (out <= 0 || v > 0.7) continue;
+        const r = Math.hypot(out * w, (sv - v) * h);
+        const k = Math.min(1, out / 0.28) * (1 - Math.max(0, (v - 0.45) / 0.25));
+        const a = flap * 0.22 * k;
+        // xoay điểm quanh vai một góc a (cánh dương lên cùng lúc 2 bên)
+        const px = (u - su) * w;
+        const py = (v - sv) * h;
+        dx += (px * Math.cos(a * side) - py * Math.sin(a * side) - px) * 1;
+        dy += (px * Math.sin(a * side) + py * Math.cos(a * side) - py) * 1 - flap * 6 * k * (r / w);
+      }
+      // ngực phập phồng
+      const chest = Math.exp(-(((u - 0.45) / 0.12) ** 2 + ((v - 0.5) / 0.15) ** 2));
+      dx += (u - 0.45) * w * 0.04 * Math.sin(t * 1.6) * chest;
+      // đuôi quẫy (góc dưới phải)
+      if (v > 0.65 && u > 0.4) {
+        const k = ((v - 0.65) / 0.35) * Math.min(1, (u - 0.4) / 0.4);
+        dx += Math.sin(t * 1.8 + u * 5) * 16 * k;
+        dy += Math.cos(t * 1.8 + u * 5) * 8 * k;
+      }
+      // đầu rướn ngửa khi hít hơi
+      const head = Math.exp(-(((u - 0.58) / 0.1) ** 2 + ((v - 0.25) / 0.12) ** 2));
+      dy -= inhale * 26 * head;
+      dx -= inhale * 10 * head;
+      return [dx, dy];
+    };
+  }
+
   private spiderWarp(w: number, h: number, t: number) {
     const fast = this.webHp > 0 && this.time - this.webT0 < 0.8 ? 2 : 1;
     return (u: number, v: number): [number, number] => {

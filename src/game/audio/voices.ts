@@ -16,6 +16,7 @@ export const MATERIAL: Record<BossId, Material> = {
   octopus: "flesh",
   stealth: "metal",
   spider: "metal",
+  dragon: "metal",
   crystal: "glass",
   mother: "metal",
   planet: "rock",
@@ -286,6 +287,11 @@ export function bossIntro(e: Engine, t: number, id: BossId) {
       }
       break;
     }
+    case "dragon":
+      roar(e, t + 0.2, true);
+      horn(e, t, true);
+      horn(e, t + 1.1, true);
+      break;
     case "spider":
       servo(e, t, 14, out);
       spray(e, t + 0.9, 0.8);
@@ -326,6 +332,36 @@ export function bossIntro(e: Engine, t: number, id: BossId) {
       break;
     }
   }
+}
+
+/** Tiếng gầm rồng: 2 lớp gào formant (trầm + rít kim loại) + rung đất */
+export function roar(e: Engine, t: number, big = true, x?: number) {
+  const out = e.pan(e.sfx, x);
+  const d = big ? 2.4 : 1.1;
+  growl(e, t, d, big ? 90 : 120, big ? 55 : 80, [420, 780], big ? 0.6 : 0.4, out);
+  growl(e, t + 0.05, d * 0.9, big ? 260 : 320, big ? 150 : 200, [900, 2400], big ? 0.18 : 0.14, out);
+  const g = e.gain(0, out, 0.3);
+  const lp = e.filter("lowpass", 220);
+  lp.connect(g);
+  e.noiseSrc(t, d, lp);
+  e.osc("sine", 38, t, d, lp);
+  e.hold(g.gain, t, big ? 0.5 : 0.3, 0.1, d * 0.6, d * 0.3);
+}
+
+/** Hơi thở hư không: hít vào (nhiễu quét lên) rồi phun (gầm + rít điện) */
+export function breath(e: Engine, t: number) {
+  const g = e.gain(0, e.sfx, 0.4);
+  const bp = e.filter("bandpass", 600, 1);
+  bp.connect(g);
+  e.sweep(bp.frequency, t, 3000, 300, 1.4);
+  e.noiseSrc(t, 1.6, bp);
+  e.hold(g.gain, t, 0.35, 0.05, 1, 0.5);
+  const zg = e.gain(0, e.sfx, 0.4);
+  const o = e.osc("sawtooth", 180, t, 1.5, zg);
+  o.frequency.exponentialRampToValueAtTime(60, t + 1.4);
+  e.osc("square", 271, t, 1.5, zg, 20);
+  e.hold(zg.gain, t, 0.08, 0.05, 1, 0.4);
+  crackle(e, t, 30, 1.4, e.sfx, 0.07, 4000);
 }
 
 /** tiếng chân nhện cơ khí: chuỗi "lách cách" servo tông cao */
@@ -389,6 +425,9 @@ export function bossHurt(e: Engine, t: number, id: BossId, x?: number) {
     case "planet":
       growl(e, t, 0.9, 70, 50, [450, 800], 0.3, out);
       crackle(e, t, 14, 0.8, out, 0.07, 1000);
+      return;
+    case "dragon":
+      roar(e, t, false, x);
       return;
     case "spider": {
       servo(e, t, 6, out);
@@ -474,6 +513,11 @@ export function bossDeath(e: Engine, t: number, id: BossId) {
         e.osc("sine", r(2200, 8000), tt, 0.6, cg);
         e.env(cg.gain, tt, r(0.01, 0.03), 0.001, r(0.1, 0.5));
       }
+      break;
+    case "dragon":
+      roar(e, t, true);
+      roar(e, t + 1.2, false);
+      megaBoom(e, t + 1.6);
       break;
     case "spider":
       servo(e, t, 24, e.sfx);

@@ -7,18 +7,21 @@ import { canvas, makeSaucer, SCX, SCY, SH, SW, type Img } from "./sprites";
  *  Trùm theo MỐC CHUỖI THẮNG (thắng liên tiếp 10 / 20 / 30 / 50… vòng thì vòng kế tiếp gặp trùm):
  *    10 → Pháo Đài Tinh Thể   — khiên tinh thể tự hồi
  *    20 → Phi Thuyền Mẹ       — thả UFO con xuống bắt người
- *    30, 50, 75, 100… → Hành Tinh Hủy Diệt — sạc pháo hủy diệt, phải dồn sát thương để ngắt sạc
+ *    30 → Hành Tinh Hủy Diệt — sạc pháo hủy diệt, phải dồn sát thương để ngắt sạc
+ *    50, 75, 100… → Rồng Không Gian (TRÙM SIÊU CẤP) — hơi thở hư không làm choáng cả phòng
  *  Trùm NGẪU NHIÊN (xen giữa các vòng thường):
  *    Đĩa Vàng Hoàng Gia (giáp dày) · Bạch Tuộc Vũ Trụ (xúc tu bắt người) · Tàu Tàng Hình (đạn bắn trượt khi tàng hình)
  */
 
-export type BossId = "ufo" | "gold" | "octopus" | "stealth" | "spider" | "crystal" | "mother" | "planet";
-export type Ability = "none" | "armor" | "grab" | "cloak" | "web" | "counter" | "shield" | "drones" | "charge";
+export type BossId = "ufo" | "gold" | "octopus" | "stealth" | "spider" | "crystal" | "mother" | "planet" | "dragon";
+export type Ability = "none" | "armor" | "grab" | "cloak" | "web" | "counter" | "shield" | "drones" | "charge" | "breath";
 
 export interface BossDef {
   id: BossId;
   name: string;
   kind: "normal" | "random" | "milestone";
+  /** trùm siêu cấp (nhãn & hào quang riêng) */
+  super?: boolean;
   /** trùm mốc: chuỗi thắng tối thiểu để gặp */
   milestone?: number;
   /** hệ số máu & thời gian hạ so với UFO thường */
@@ -77,6 +80,10 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: "planet", name: "Hành Tinh Hủy Diệt", kind: "milestone", milestone: 30, hpMul: 3.2, timeMul: 1.6, stars: 5, color: "#ff3b3b", ability: "charge",
     power: "Mắt hủy diệt sạc năng lượng — dồn sát thương để ngắt sạc, không thì bị đẩy sát mặt đất!", w: 720, h: 560, cx: 360, cy: 280, scale: 0.8, hitRx: 210, hitRy: 210, hitCy: 0, bellyY: 225,
   },
+  dragon: {
+    id: "dragon", name: "Rồng Không Gian", kind: "milestone", milestone: 50, super: true, hpMul: 4, timeMul: 1.8, stars: 5, color: "#b98cff", ability: "breath",
+    power: "Hơi thở hư không: rồng hít sâu 4 giây — dồn sát thương để ngắt, không thì cả phòng bị choáng & UFO tụt 6 km!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.9, hitRx: 300, hitRy: 120, hitCy: 0, bellyY: 90,
+  },
 };
 
 export const RANDOM_BOSSES: BossId[] = ["gold", "octopus", "stealth", "spider"];
@@ -93,6 +100,7 @@ export function nextMilestone(streak: number) {
 }
 
 export function milestoneBoss(streak: number): BossId {
+  if (streak >= 50) return "dragon";
   if (streak >= 30) return "planet";
   if (streak >= 20) return "mother";
   return "crystal";
@@ -112,6 +120,8 @@ export function makeBossSprite(id: BossId): Img {
       return makeStealth();
     case "spider":
       return makeSaucer("rgba(90,255,80,0.22)");
+    case "dragon":
+      return makeSaucer("rgba(150,90,255,0.35)");
     case "crystal":
       return makeCrystal();
     case "mother":
@@ -560,6 +570,7 @@ import artOctopus from "../assets/bosses/octopus.webp";
 import artPlanet from "../assets/bosses/planet.webp";
 import artStealth from "../assets/bosses/stealth.webp";
 import artSpider from "../assets/bosses/spider.webp";
+import artDragon from "../assets/bosses/dragon.webp";
 import artUfo from "../assets/bosses/ufo.webp";
 
 export interface BossArt {
@@ -585,6 +596,7 @@ export const BOSS_ART: Record<BossId, BossArt> = {
   crystal: { url: artCrystal, width: 420, cx: 0.5, cy: 0.5, hitRx: 160, hitRy: 190, hitCy: 0, belly: 215 },
   mother: { url: artMother, width: 840, cx: 0.5, cy: 0.5, hitRx: 380, hitRy: 100, hitCy: -15, belly: 200 },
   planet: { url: artPlanet, width: 460, cx: 0.505, cy: 0.51, hitRx: 175, hitRy: 175, hitCy: 0, belly: 190 },
+  dragon: { url: artDragon, width: 640, cx: 0.525, cy: 0.5, hitRx: 230, hitRy: 210, hitCy: 10, belly: 230 },
 };
 
 // ======================= bộ chuyển động (sprite sheet theo khung) =======================

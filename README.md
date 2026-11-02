@@ -58,7 +58,8 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 | Nhện Vũ Trụ | ngẫu nhiên | nhện cơ khí 8 chân, 2 súng gatling trên lưng, lõi xanh (chân bò so le bằng lưới biến dạng) | **Lưới tơ** = 8% máu giăng dưới bụng: tim (laser) dính tơ chỉ gây 30%; bình luận (tên lửa) & quà xé lưới; rách thì 12 s sau giăng lại | ×2 / ×1,1 |
 | Pháo Đài Tinh Thể | chuỗi **10** | cụm tinh thể lục giác, vòng phù văn quay | **Khiên tinh thể** = 12% máu, hứng sát thương trước; vỡ thì 12 s sau tự hồi | ×2,4 / ×1,4 |
 | Phi Thuyền Mẹ | chuỗi **20** | đĩa khổng lồ 3 tầng, vòm kính, khoang chứa phát sáng | **UFO con**: mỗi 7 s thả 2 chiếc lao xuống phố; chạm phố là bắt 1 người. ~45% đạn tự nhắm UFO con | ×2,8 / ×1,5 |
-| Hành Tinh Hủy Diệt | chuỗi **30, 50, 75, 100…** | khối cầu nứt dung nham, vành đai nghiêng, mắt khổng lồ | **Mắt hủy diệt** sạc 5 s: dồn đủ 7% máu để ngắt, không thì tia đỏ bắn xuống, UFO tụt 8 km | ×3,2 / ×1,6 |
+| Hành Tinh Hủy Diệt | chuỗi **30** | khối cầu nứt dung nham, vành đai nghiêng, mắt khổng lồ | **Mắt hủy diệt** sạc 5 s: dồn đủ 7% máu để ngắt, không thì tia đỏ bắn xuống, UFO tụt 8 km | ×3,2 / ×1,6 |
+| **Rồng Không Gian** — TRÙM SIÊU CẤP | chuỗi **50, 75, 100…** | rồng cơ khí giáp đen, cánh thiên hà tím (cánh vỗ, ngực phập phồng, đuôi quẫy, đầu rướn khi hít hơi) | **Hơi thở hư không**: hít sâu 4 s — dồn 6% máu để ngắt, không thì luồng tím quét cả phố: mọi người choáng 6 s (−50%) & UFO tụt 6 km | ×4 / ×1,8 |
 
 Mỗi kỹ năng có dòng nhắc nhấp nháy trên HUD (vd. `🐙 CỨU AN: 120/399 · còn 4s`) để chủ phòng hô hào cả phòng.
 
