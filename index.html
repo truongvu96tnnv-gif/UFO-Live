@@ -2,11 +2,20 @@
 <html lang="vi">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- điện thoại: "Thêm vào màn hình chính" → mở toàn màn hình như app, không thanh địa chỉ -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#05060c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <title>UFO Live · Bảo Vệ Trái Đất</title>
     <style>
-      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-      canvas { position: absolute; display: block; }
+      html, body { margin: 0; height: 100%; overflow: hidden; touch-action: manipulation; }
+      /* điện thoại dài hơn 9:16: phần dư trên/dưới tô liền màu trời đêm & phố thay vì viền đen */
+      body { background: linear-gradient(#0b1030 0%, #0b1030 30%, #070914 70%, #05060c 100%); }
+      canvas { position: fixed; display: block; }
       #help {
         position: absolute; left: 16px; top: 16px; max-width: 520px; padding: 14px 18px;
         background: rgba(5, 8, 20, 0.88); color: #e8eeff; border: 1px solid #2c3a66; border-radius: 12px;

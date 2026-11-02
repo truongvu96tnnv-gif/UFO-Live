@@ -24,19 +24,30 @@ game.sfx.unlock();
 const canvas = document.createElement("canvas");
 canvas.width = W;
 canvas.height = H;
-document.body.appendChild(canvas);
-const ctx = canvas.getContext("2d")!;
+// position: fixed + kích thước CSS đặt TRƯỚC khi gắn vào trang: nếu không, canvas 1080px "nở" trang trên điện thoại
+// (trình duyệt di động nới khung nhìn theo nội dung) → game bị phóng to & lệch, không vừa màn hình
+canvas.style.position = "fixed";
 
-/** co giãn giữ tỉ lệ 9:16, nền đen hai bên (Browser Source 1080×1920 thì vừa khít) */
+/**
+ * Co giãn khung 9:16. Mặc định giữ trọn khung (Browser Source 1080×1920 thì vừa khít; điện thoại dài hơn thì dư
+ * trên/dưới, phần dư tô liền màu nền). ?fit=cover: phóng cho kín màn hình, cắt bớt 2 mép trái/phải.
+ */
+const cover = q.get("fit") === "cover";
 function fit() {
-  const s = Math.min(innerWidth / W, innerHeight / H);
+  const vw = document.documentElement.clientWidth || innerWidth;
+  const vh = document.documentElement.clientHeight || innerHeight;
+  const s = cover ? Math.max(vw / W, vh / H) : Math.min(vw / W, vh / H);
   canvas.style.width = `${W * s}px`;
   canvas.style.height = `${H * s}px`;
-  canvas.style.left = `${(innerWidth - W * s) / 2}px`;
-  canvas.style.top = `${(innerHeight - H * s) / 2}px`;
+  canvas.style.left = `${(vw - W * s) / 2}px`;
+  canvas.style.top = `${(vh - H * s) / 2}px`;
 }
 addEventListener("resize", fit);
+visualViewport?.addEventListener("resize", fit);
+document.addEventListener("fullscreenchange", () => setTimeout(fit, 50));
 fit();
+document.body.appendChild(canvas);
+const ctx = canvas.getContext("2d")!;
 
 const sink = (e: LiveEvent) => game.handle(e);
 
@@ -117,7 +128,14 @@ addEventListener("keydown", (e) => {
   } else if (k === "[") demo.level = Math.max(0, demo.level - 1);
   else if (k === "]") demo.level = Math.min(3, demo.level + 1);
 });
-addEventListener("pointerdown", () => game.sfx.unlock());
+addEventListener("pointerdown", (e) => {
+  game.sfx.unlock();
+  // điện thoại (Android): chạm lần đầu → toàn màn hình, ẩn thanh địa chỉ & thanh điều hướng. iPhone không hỗ trợ —
+  // dùng "Thêm vào màn hình chính". Không áp dụng cho chuột (OBS Interact / máy tính).
+  if (e.pointerType === "touch" && q.get("fs") !== "0" && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen({ navigationUI: "hide" }).then(() => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.("portrait").catch(() => {}), () => {});
+  }
+});
 // chế độ demo: chạm vào màn hình = thả tim, thanh nút + bảng quà để thử trên điện thoại
 const you: LiveUser = { id: "you", name: "Bạn", avatar: "demo:200" };
 // nút "Gọi trùm": đánh ngay trùm kế tiếp trong danh sách để xem model & kỹ năng

@@ -60,6 +60,7 @@ const MIME: Record<string, string> = {
   ".webp": "image/webp",
   ".woff2": "font/woff2",
   ".woff": "font/woff",
+  ".webmanifest": "application/manifest+json",
 };
 
 async function route(req: IncomingMessage, res: ServerResponse) {

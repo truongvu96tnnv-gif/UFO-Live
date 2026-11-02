@@ -164,7 +164,7 @@ Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phò
 
 ### Tham số URL
 
-`?demo=1&crowd=0..3` người xem giả · `time=75` thời gian hạ (giây) · `hp=260` máu cơ bản · `hpv=30` máu thêm mỗi người xem · `like=1` `chat=4` `gift=12` sát thương (gift = mỗi xu) · `fund=100` mốc quỹ đầu tiên · `boss=0.15` xác suất vòng thường gặp trùm ngẫu nhiên · `mute=1` · `ws=ws://host:port/ws` địa chỉ bridge khác · `bubbles=0` không hiện chữ bình luận · `ban=tu1,tu2` thêm từ cấm · `keys=1` mở lại phím thử khi đang nối bridge (chỉ dùng lúc chưa lên live).
+`?demo=1&crowd=0..3` người xem giả · `time=75` thời gian hạ (giây) · `hp=260` máu cơ bản · `hpv=30` máu thêm mỗi người xem · `like=1` `chat=4` `gift=12` sát thương (gift = mỗi xu) · `fund=100` mốc quỹ đầu tiên · `boss=0.15` xác suất vòng thường gặp trùm ngẫu nhiên · `mute=1` · `ws=ws://host:port/ws` địa chỉ bridge khác · `bubbles=0` không hiện chữ bình luận · `ban=tu1,tu2` thêm từ cấm · `keys=1` mở lại phím thử khi đang nối bridge (chỉ dùng lúc chưa lên live). · `fit=cover` phóng kín màn hình (cắt 2 mép trái/phải) · `fs=0` không tự vào toàn màn hình khi chạm.
 
 ### Biến môi trường của bridge
 
@@ -187,6 +187,10 @@ curl -X POST localhost:8787/emit -d '{"type":"envelope","user":{"id":"an","name"
 ```
 
 Dạng sự kiện: xem `src/live/events.ts` (`join`, `like`, `chat`, `gift`, `envelope`, `follow`, `share`).
+
+### Live bằng điện thoại (chia sẻ màn hình)
+
+Khi tài khoản chưa dùng được LIVE Studio: chạy bridge trên máy tính với `HOST=0.0.0.0`, điện thoại cùng Wi-Fi mở `http://<IP-máy-tính>:8787/`, rồi live ở chế độ *Mobile gaming* (chia sẻ màn hình). Chạm lần đầu → game vào toàn màn hình (Android). Trên iPhone dùng *Chia sẻ → Thêm vào MH chính* để mở như app không thanh địa chỉ. Chỉ bật `HOST=0.0.0.0` ở Wi-Fi nhà.
 
 ## An toàn với chính sách TikTok LIVE
 
