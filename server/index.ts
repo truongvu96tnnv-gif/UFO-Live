@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { ControlEvent, TikTokLiveConnection, WebcastEvent } from "tiktok-live-connector";
 import { WebSocket, WebSocketServer } from "ws";
 import { PRESENCE_TTL_MS } from "../src/live/events";
+import { sendBossCommand } from "./boss-command";
 import { BOSS_NAMES, isBossId } from "../src/live/boss-catalog";
 import { DEFAULT_CONTROL, parseControl, SimulatedPlayers } from "./control";
 import { bindLiveEvents } from "./live";
@@ -311,7 +312,12 @@ async function controlRoute(req: IncomingMessage, res: ServerResponse) {
       if (![...wss.clients].some(client => client.readyState === WebSocket.OPEN)) {
         return void respond(409, { error: "Chưa có màn hình game kết nối. Hãy mở màn hình game trước." });
       }
-      broadcast({ type: "summonBoss", bossId: data.bossId });
+      try {
+        const bossResult = await sendBossCommand(wss.clients, data.bossId);
+        return void respond(200, { ...snapshot(), bossResult });
+      } catch (error) {
+        return void respond(504, { error: error instanceof Error ? error.message : "Game không phản hồi" });
+      }
     } else if (data.action === "connect") {
       if (typeof data.username !== "string" || !/^@?[a-zA-Z0-9_.]{1,64}$/.test(data.username.trim())) throw new Error("Nhập username TikTok, không nhập đường dẫn");
       USERNAME = data.username.trim().replace(/^@/, "");

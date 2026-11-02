@@ -21,7 +21,7 @@ export interface ControlSettings {
 }
 
 export type LiveEvent =
-  | { type: "summonBoss"; bossId: BossId }
+  | { type: "summonBoss"; bossId: BossId; requestId?: string }
   | { type: "control"; settings: ControlSettings }
   | { type: "remove"; ids: string[] }
   | { type: "presence"; user: LiveUser; remainingMs?: number }

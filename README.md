@@ -249,3 +249,5 @@ BOT tự tắt khi số người xem thật TikTok báo về **vượt 20** (20 
 ### Gọi boss từ trang điều khiển
 
 Trong `/control`, chọn một trong 12 boss/UFO rồi bấm **Gọi boss ngay**. Lệnh thay trận hiện tại bằng trận mới có màn xuất hiện của boss, dọn đạn và kỹ năng cũ, giữ tổng tỉ số/chuỗi thắng. Mọi màn hình game đang kết nối đều nhận lệnh. Nếu chưa có màn hình game, API báo lỗi; lệnh không được lưu để phát lại khi tải trang.
+
+Control chỉ báo gọi boss thành công khi màn hình game xác nhận đã thực thi. Nếu quá 4 giây không xác nhận, control hiển thị lỗi và hướng dẫn tải lại bản game. Trang demo `?demo=1` khi mở qua bridge cũng nhận lệnh gọi boss; `?ws=0` và file HTML offline không nối bridge thì không nhận lệnh.

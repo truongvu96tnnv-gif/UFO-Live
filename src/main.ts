@@ -68,9 +68,13 @@ const liveMode = q.get("ws") !== "0" && !demoOn;
 const fakeOk = !liveMode || q.get("keys") === "1";
 game.showChat = q.get("bubbles") !== "0";
 addBannedWords(q.get("ban"));
-if (liveMode) {
+if (q.get("ws") !== "0" && (location.protocol !== "file:" || q.has("ws"))) {
   const url = q.get("ws") ?? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
-  connectBridge(url, sink);
+  connectBridge(url, (event) => {
+    // Hosted demo pages still receive operator commands, without ingesting real interactions.
+    if (demoOn && event.type !== "control" && event.type !== "summonBoss") return;
+    sink(event);
+  });
 }
 
 // ---------------- phím tắt cho người vận hành (OBS: chuột phải Browser Source → Interact) ----------------

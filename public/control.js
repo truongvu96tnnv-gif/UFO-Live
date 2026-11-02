@@ -50,7 +50,7 @@ async function command(body) {
     if (!response.ok) throw new Error(data.error || 'Không thể áp dụng');
     render(data);
     syncForm(data);
-    notice(body.action === 'summonBoss' ? `Đã gửi lệnh gọi ${data.bosses.find(b => b.id === body.bossId)?.name || body.bossId} đến ${data.clients} màn hình game.` : body.action === 'connect' ? 'Đã gửi yêu cầu kết nối. Theo dõi trạng thái bên trên.' : 'Đã áp dụng.');
+    notice(body.action === 'summonBoss' ? `Đã gọi ${data.bosses.find(b => b.id === body.bossId)?.name || body.bossId}: ${data.bossResult.applied} màn hình game xác nhận.` : body.action === 'connect' ? 'Đã gửi yêu cầu kết nối. Theo dõi trạng thái bên trên.' : 'Đã áp dụng.');
   } catch (err) {
     notice(err.message, true);
     if (lastSnapshot) syncForm(lastSnapshot);

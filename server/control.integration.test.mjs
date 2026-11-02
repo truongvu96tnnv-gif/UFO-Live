@@ -39,6 +39,7 @@ test('control HTTP API and game WebSocket share simulation state without inflati
   const firstLike = new Promise(resolve => ws.on('message', raw => {
     const data = JSON.parse(String(raw));
     messages.push(...(Array.isArray(data) ? data : [data]));
+    if (data.type === 'summonBoss') ws.send(JSON.stringify({ type: 'commandResult', requestId: data.requestId, ok: true }));
     if (data.type === 'like') resolve();
   }));
   await firstLike;
@@ -49,7 +50,9 @@ test('control HTTP API and game WebSocket share simulation state without inflati
     if (data.type === 'summonBoss') resolve(data);
   }));
   assert.equal((await post({ action: 'summonBoss', bossId: 'dragon' })).status, 200);
-  assert.deepEqual(await summoned, { type: 'summonBoss', bossId: 'dragon' });
+  const command = await summoned;
+  assert.equal(command.bossId, 'dragon');
+  assert.equal(typeof command.requestId, 'string');
   const late = new WebSocket(`ws://127.0.0.1:${port}/ws`);
   t.after(() => late.terminate());
   const replay = [];
