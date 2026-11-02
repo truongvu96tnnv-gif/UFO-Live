@@ -17,6 +17,7 @@ export const MATERIAL: Record<BossId, Material> = {
   stealth: "metal",
   spider: "metal",
   dragon: "metal",
+  devourer: "rock",
   crystal: "glass",
   mother: "metal",
   planet: "rock",
@@ -287,6 +288,11 @@ export function bossIntro(e: Engine, t: number, id: BossId) {
       }
       break;
     }
+    case "devourer":
+      vortex(e, t, 2.5);
+      growl(e, t + 0.6, 2, 70, 45, [380, 700], 0.5, out);
+      horn(e, t + 0.3, true);
+      break;
     case "dragon":
       roar(e, t + 0.2, true);
       horn(e, t, true);
@@ -332,6 +338,44 @@ export function bossIntro(e: Engine, t: number, id: BossId) {
       break;
     }
   }
+}
+
+/** Xoáy hố đen: gió hút ù ù dâng dần + rền trầm (trả về hàm dừng) */
+export function vortex(e: Engine, t: number, dur = 5): () => void {
+  const g = e.gain(0, e.sfx, 0.4);
+  const bp = e.filter("bandpass", 300, 1.5);
+  bp.connect(g);
+  e.sweep(bp.frequency, t, 200, 1600, dur);
+  e.noiseSrc(t, dur, bp);
+  const lfo = e.ctx.createOscillator();
+  const lg = e.ctx.createGain();
+  lfo.frequency.value = 3;
+  lg.gain.value = 200;
+  lfo.connect(lg).connect(bp.frequency);
+  lfo.start(t);
+  lfo.stop(t + dur);
+  const o = e.osc("sine", 45, t, dur, g);
+  o.frequency.exponentialRampToValueAtTime(30, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.4, t + Math.min(dur, 3));
+  g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.1);
+  return () => {
+    const n = e.now;
+    g.gain.cancelScheduledValues(n);
+    g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), n);
+    g.gain.exponentialRampToValueAtTime(0.0001, n + 0.2);
+  };
+}
+
+/** Nuốt: "ực" trầm khổng lồ */
+export function gulp(e: Engine, t: number) {
+  const g = e.gain(0, e.sfx, 0.4);
+  const o = e.osc("sine", 160, t, 0.6, g);
+  o.frequency.exponentialRampToValueAtTime(40, t + 0.5);
+  const lp = e.filter("lowpass", 500, 6);
+  lp.connect(g);
+  e.noiseSrc(t, 0.4, lp);
+  e.env(g.gain, t, 0.7, 0.01, 0.55);
 }
 
 /** Tiếng gầm rồng: 2 lớp gào formant (trầm + rít kim loại) + rung đất */
@@ -429,6 +473,10 @@ export function bossHurt(e: Engine, t: number, id: BossId, x?: number) {
     case "dragon":
       roar(e, t, false, x);
       return;
+    case "devourer":
+      growl(e, t, 0.8, 80, 60, [400, 760], 0.35, out);
+      crackle(e, t, 10, 0.6, out, 0.06, 1200);
+      return;
     case "spider": {
       servo(e, t, 6, out);
       const g = e.gain(0, out, 0.3);
@@ -513,6 +561,10 @@ export function bossDeath(e: Engine, t: number, id: BossId) {
         e.osc("sine", r(2200, 8000), tt, 0.6, cg);
         e.env(cg.gain, tt, r(0.01, 0.03), 0.001, r(0.1, 0.5));
       }
+      break;
+    case "devourer":
+      growl(e, t, 2.2, 90, 30, [380, 700], 0.5, e.sfx);
+      megaBoom(e, t + 1);
       break;
     case "dragon":
       roar(e, t, true);

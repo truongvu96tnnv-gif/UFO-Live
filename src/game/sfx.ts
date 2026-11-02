@@ -26,6 +26,7 @@ const HUM: Record<BossId, [number, number, number]> = {
   stealth: [64, 520, 0.6],
   spider: [58, 420, 0.9],
   dragon: [24, 150, 1.6],
+  devourer: [27, 170, 1.5],
   crystal: [73, 760, 0.7],
   mother: [30, 210, 1.3],
   planet: [26, 180, 1.4],
@@ -188,6 +189,16 @@ export class Sfx {
   bossAttack(id: BossId) {
     const e = this.ok;
     if (e) vo.bossAttack(e, e.now, id);
+  }
+  /** miệng hố đen hút (5 s) — trả về hàm dừng khi bị ngắt */
+  suckStart() {
+    const e = this.ok;
+    this.stopCharge?.();
+    this.stopCharge = e ? vo.vortex(e, e.now, 5) : null;
+  }
+  gulp() {
+    const e = this.ok;
+    if (e) vo.gulp(e, e.now);
   }
   roar(big = true) {
     const e = this.ok;

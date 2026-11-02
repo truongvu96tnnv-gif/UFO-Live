@@ -21,6 +21,7 @@ export const MOTION: Record<BossId, { bob: number; bobHz: number; roll: number; 
   spider: { bob: 6, bobHz: 0.5, roll: 0.03, rollHz: 0.32, spin: 0 },
   crystal: { bob: 12, bobHz: 0.3, roll: 0.015, rollHz: 0.2, spin: 0 },
   mother: { bob: 5, bobHz: 0.25, roll: 0.015, rollHz: 0.18, spin: 0 },
+  devourer: { bob: 8, bobHz: 0.28, roll: 0.07, rollHz: 0.12, spin: 0 },
   dragon: { bob: 12, bobHz: 0.32, roll: 0.02, rollHz: 0.2, spin: 0 },
   planet: { bob: 4, bobHz: 0.2, roll: 0, rollHz: 0, spin: 0.06 },
 };

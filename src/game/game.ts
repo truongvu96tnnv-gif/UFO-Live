@@ -270,6 +270,9 @@ export class Game {
   private webT0 = -99;
   /** lúc rồng phun hơi thở hư không */
   private breathT = -99;
+  /** Kẻ Nuốt Hành Tinh: đang hút người vào miệng hố đen */
+  private devour: { t0: number; need: number; dealt: number; victims: Person[] } | null = null;
+  private spitT = -99;
   private drones: Drone[] = [];
   private charge: { t0: number; need: number; dealt: number } | null = null;
   private cloak = 0;
@@ -587,6 +590,7 @@ export class Game {
     for (const c of this.beams) c.dur = 0;
     this.grab = null;
     this.charge = null;
+    this.devour = null;
     this.sfx.chargeStop();
     for (const d of this.drones) d.dead = true;
     if (win) {
@@ -926,6 +930,7 @@ export class Game {
       if (Math.random() < 0.15) this.floatText("TRƯỢT", x, y - 30, "#7fd8ff", 24);
     }
     if (this.grab) this.grab.dealt += dmg;
+    if (this.devour) this.devour.dealt += dmg;
     if (this.charge) this.charge.dealt += dmg;
     // Nhện Vũ Trụ: laser dính lưới (30%), tên lửa & quà xé lưới trước
     if (this.webHp > 0) {
@@ -1340,6 +1345,7 @@ export class Game {
     this.drawEnemyShots(ctx);
     this.drawWeb(ctx);
     this.drawBreath(ctx);
+    this.drawVortex(ctx);
     this.drawBeams(ctx);
     this.drawCrates(ctx);
     this.drawShots(ctx, true);
@@ -1389,6 +1395,17 @@ export class Game {
       r *= 1 - 0.85 * e;
       rot = su * 5;
       glow = 0.3 + 0.5 * su;
+    } else if (this.devour?.victims.includes(p)) {
+      // bị hút xoáy dần về miệng hố đen (chưa tới hẳn — còn cứu được)
+      const u = clamp((this.time - this.devour.t0) / 5, 0, 1);
+      const [mx, my] = this.mawPos();
+      const e = u * u * 0.7;
+      const ang = this.time * 4 + p.p;
+      x = lerp(x, mx, e) + Math.cos(ang) * 40 * (1 - e) * u;
+      y = lerp(y, my, e) + Math.sin(ang) * 20 * (1 - e) * u;
+      r *= 1 - 0.4 * e;
+      rot = this.time * 3 * u;
+      glow = 0.6;
     } else if (this.grab?.p === p) {
       // bị xúc tu nhấc lên
       const lift = clamp((this.time - this.grab.t0) / 6, 0, 1) * 0.55;
@@ -1704,6 +1721,48 @@ export class Game {
         }
         break;
       }
+      case "devour": {
+        // Kẻ Nuốt Hành Tinh: há miệng hố đen hút 3 người trong 5s; đủ sát thương thì nghẹn nhả ra, không thì nuốt & hồi máu
+        if (!this.devour && now >= this.abilityT) {
+          const cand = this.freePeople().filter((p) => {
+            const [x] = this.personPos(p);
+            return x > 60 && x < W - 60;
+          });
+          if (cand.length) {
+            const victims = cand.sort(() => Math.random() - 0.5).slice(0, 3);
+            const need = Math.round(this.hpMax * 0.06);
+            this.devour = { t0: now, need, dealt: 0, victims };
+            this.toast("🌀 MIỆNG HỐ ĐEN MỞ!", `Hút ${victims.map((v) => short(v.user.name, 8)).join(", ")} · dồn ${fmt(need)} trong 5s`, d.color, victims[0].user, 3);
+            this.sfx.suckStart();
+          } else this.abilityT = now + 3;
+        }
+        const dv = this.devour;
+        if (dv) {
+          if (dv.dealt >= dv.need) {
+            this.devour = null;
+            this.abilityT = now + 13;
+            this.spitT = now;
+            for (const p of dv.victims) {
+              p.pulse = 1;
+              this.sparks(...this.personPos(p), 14, 500);
+            }
+            this.sfx.chargeStop();
+            this.sfx.bossHurt(d.id, this.ux);
+            this.toast("🤢 QUÁI BỊ NGHẸN, NHẢ NGƯỜI RA!", "Cả phòng cứu được mọi người", "#9dff7a", undefined, 3);
+          } else if (now - dv.t0 >= 5) {
+            this.devour = null;
+            this.abilityT = now + 13;
+            for (const p of dv.victims) p.suck = now;
+            const heal = Math.round(this.hpMax * 0.05);
+            this.hp = Math.min(this.hpMax, this.hp + heal);
+            this.sfx.chargeStop();
+            this.sfx.gulp();
+            this.toast(`😱 NUỐT MẤT ${dv.victims.length} NGƯỜI!`, `Kẻ Nuốt Hành Tinh hồi ${fmt(heal)} máu`, "#ff5a6e", undefined, 3);
+            this.floatText(`+${fmt(heal)}`, this.ux, this.uy - 120, "#9dff7a", 46);
+          }
+        }
+        break;
+      }
       case "breath": {
         // Rồng Không Gian: hít sâu 4 giây; đủ sát thương thì ngắt, không thì phun hơi thở hư không quét cả phố
         if (!this.charge && now >= this.abilityT) {
@@ -1737,6 +1796,55 @@ export class Game {
       default:
         break;
     }
+  }
+
+  /** tâm miệng hố đen của Kẻ Nuốt Hành Tinh (px sân khấu) */
+  private mawPos(): [number, number] {
+    const a = BOSS_ART.devourer;
+    const img = this.art("devourer");
+    const h = img ? (a.width * img.naturalHeight) / img.naturalWidth : a.width;
+    return [this.ux + (0.56 - a.cx) * a.width, this.uy + (0.55 - a.cy) * h];
+  }
+
+  /** xoáy hút trước miệng: các vòng xoắn ốc co vào tâm + dòng hút tới từng nạn nhân */
+  private drawVortex(ctx: CanvasRenderingContext2D) {
+    const dv = this.devour;
+    if (!dv || !this.ufoAlive) return;
+    const [mx, my] = this.mawPos();
+    const u = clamp((this.time - dv.t0) / 5, 0, 1);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < 5; i++) {
+      const f = 1 - ((this.time * 0.8 + i / 5) % 1);
+      ctx.globalAlpha = (1 - f) * 0.8;
+      ctx.strokeStyle = i % 2 ? "rgba(255,150,60,0.9)" : "rgba(190,90,255,0.9)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      for (let k = 0; k <= 40; k++) {
+        const a = (k / 40) * Math.PI * 2 + this.time * 3 + i;
+        const rr = (60 + f * 260) * (0.75 + 0.25 * Math.sin(a * 3));
+        const px = mx + Math.cos(a) * rr;
+        const py = my + Math.sin(a) * rr * 0.75;
+        if (k) ctx.lineTo(px, py);
+        else ctx.moveTo(px, py);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.5 + 0.4 * u;
+    ctx.drawImage(this.glows[1], mx - 140, my - 120, 280, 240);
+    ctx.drawImage(this.glows[5], mx - 90, my - 80, 180, 160);
+    // dòng hút tới nạn nhân
+    for (const p of dv.victims) {
+      const [px, py] = this.personPos(p);
+      ctx.globalAlpha = 0.35;
+      ctx.strokeStyle = "rgba(255,170,90,0.7)";
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.quadraticCurveTo((mx + px) / 2 + Math.sin(this.time * 5) * 40, (my + py) / 2, px, py);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /** miệng rồng (px sân khấu) */
@@ -1815,6 +1923,7 @@ export class Game {
   private abilityLine(): [string, string] | null {
     const now = this.time;
     if (this.grab) return [`🐙 CỨU ${short(this.grab.p.user.name, 12).toUpperCase()}: ${fmt(this.grab.dealt)}/${fmt(this.grab.need)} · còn ${Math.ceil(6 - (now - this.grab.t0))}s`, "#d58bff"];
+    if (this.devour) return [`🌀 CỨU ${this.devour.victims.length} NGƯỜI KHỎI HỐ ĐEN: ${fmt(this.devour.dealt)}/${fmt(this.devour.need)} · còn ${Math.ceil(5 - (now - this.devour.t0))}s`, "#ff9a3d"];
     if (this.charge && this.bossDef.ability === "breath") return [`🐉 NGẮT HƠI RỒNG: ${fmt(this.charge.dealt)}/${fmt(this.charge.need)} · còn ${Math.ceil(4 - (now - this.charge.t0))}s`, "#b98cff"];
     if (this.charge) return [`👁 NGẮT SẠC: ${fmt(this.charge.dealt)}/${fmt(this.charge.need)} · còn ${Math.ceil(5 - (now - this.charge.t0))}s`, "#ff5a5a"];
     if (this.cloaked) return ["👻 TÀU ĐANG TÀNG HÌNH — 70% ĐẠN BẮN TRƯỢT!", "#7fd8ff"];
@@ -2041,9 +2150,9 @@ export class Game {
     const at = (fx: number, fy: number): [number, number] => [ox + w * fx, oy + h * fy];
     const danger = this.phase === "battle" && this.progress > 0.75;
     const alpha = 1 - 0.85 * this.cloak;
-    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, spider: 4, dragon: 5, crystal: 6, mother: 0, planet: 1 };
+    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, spider: 4, devourer: 1, dragon: 5, crystal: 6, mother: 0, planet: 1 };
     ctx.save();
-    const organic = d.id === "octopus" || d.id === "spider" || d.id === "dragon";
+    const organic = d.id === "octopus" || d.id === "spider" || d.id === "dragon" || d.id === "devourer";
     // nhịp lơ lửng & chao nghiêng riêng từng trùm (đo từ video giới thiệu boss)
     const mo = MOTION[d.id];
     const TAU = Math.PI * 2;
@@ -2073,7 +2182,7 @@ export class Game {
         ctx.drawImage(img, 0, (img.naturalHeight * i) / n, img.naturalWidth, img.naturalHeight / n, ox + jx, oy + (h * i) / n, w, h / n);
       }
     } else if (organic) {
-      const warp = d.id === "spider" ? this.spiderWarp(w, h, t) : d.id === "dragon" ? this.dragonWarp(w, h, t) : this.octopusWarp(w, h, t);
+      const warp = d.id === "spider" ? this.spiderWarp(w, h, t) : d.id === "dragon" ? this.dragonWarp(w, h, t) : d.id === "devourer" ? this.devourerWarp(w, h, t) : this.octopusWarp(w, h, t);
       drawWarped(ctx, img, ox, oy, w, h, d.id === "dragon" ? 12 : d.id === "spider" ? 10 : 8, 12, warp);
     }
     else ctx.drawImage(img, ox, oy, w, h);
@@ -2238,6 +2347,34 @@ export class Game {
       dy -= inhale * 26 * head;
       dx -= inhale * 10 * head;
       return [dx, dy];
+    };
+  }
+
+  /**
+   * Kẻ Nuốt Hành Tinh: miệng hố đen nhai (giãn–co quanh tâm miệng, há rộng khi đang hút),
+   * các vuốt gai bên ngoài xoay nhẹ quanh thân như đang cuộn lại.
+   */
+  private devourerWarp(w: number, h: number, t: number) {
+    const open = this.devour ? 0.5 + 0.5 * clamp((t - this.devour.t0) / 1, 0, 1) : 0;
+    const spit = clamp(1 - (t - this.spitT) / 0.6, 0, 1);
+    const chew = Math.sin(t * 3.2) * 0.5 + 0.5;
+    const MX = 0.56;
+    const MY = 0.55;
+    return (u: number, v: number): [number, number] => {
+      const dx = (u - MX) * w;
+      const dy = (v - MY) * h;
+      const r = Math.hypot(dx, dy) / w;
+      // miệng: đẩy ra xa tâm (há) theo hàm chuông
+      const mouth = Math.exp(-((r / 0.2) ** 2));
+      const k = (0.05 + 0.08 * chew + 0.22 * open + 0.2 * spit) * mouth;
+      // gai ngoài: xoay quanh tâm thân
+      const cx = (u - 0.5) * w;
+      const cy = (v - 0.52) * h;
+      const outer = Math.max(0, Math.hypot(cx, cy) / w - 0.32) * 2.5;
+      const a = Math.sin(t * 1.3) * 0.05 * outer + (this.devour ? 0.08 * Math.sin(t * 6) * outer : 0);
+      const rx = cx * Math.cos(a) - cy * Math.sin(a) - cx;
+      const ry = cx * Math.sin(a) + cy * Math.cos(a) - cy;
+      return [dx * k + rx, dy * k + ry];
     };
   }
 

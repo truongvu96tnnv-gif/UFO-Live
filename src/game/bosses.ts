@@ -13,8 +13,8 @@ import { canvas, makeSaucer, SCX, SCY, SH, SW, type Img } from "./sprites";
  *    Đĩa Vàng Hoàng Gia (giáp dày) · Bạch Tuộc Vũ Trụ (xúc tu bắt người) · Tàu Tàng Hình (đạn bắn trượt khi tàng hình)
  */
 
-export type BossId = "ufo" | "gold" | "octopus" | "stealth" | "spider" | "crystal" | "mother" | "planet" | "dragon";
-export type Ability = "none" | "armor" | "grab" | "cloak" | "web" | "counter" | "shield" | "drones" | "charge" | "breath";
+export type BossId = "ufo" | "gold" | "octopus" | "stealth" | "spider" | "devourer" | "crystal" | "mother" | "planet" | "dragon";
+export type Ability = "none" | "armor" | "grab" | "cloak" | "web" | "counter" | "shield" | "drones" | "charge" | "breath" | "devour";
 
 export interface BossDef {
   id: BossId;
@@ -68,6 +68,10 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: "spider", name: "Nhện Vũ Trụ", kind: "random", hpMul: 2, timeMul: 1.1, stars: 3, color: "#7dff4a", ability: "web",
     power: "Giăng lưới tơ: tim (laser) dính lưới chỉ gây 30% — bình luận & quà mới xé được lưới!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.8, hitRx: 280, hitRy: 70, hitCy: 0, bellyY: 70,
   },
+  devourer: {
+    id: "devourer", name: "Kẻ Nuốt Hành Tinh", kind: "random", hpMul: 2.4, timeMul: 1.2, stars: 4, color: "#ff9a3d", ability: "devour",
+    power: "Miệng hố đen hút 3 người xem — dồn sát thương trong 5s để nó nghẹn nhả ra, không thì bị nuốt & quái hồi máu!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.8, hitRx: 280, hitRy: 80, hitCy: 0, bellyY: 40,
+  },
   crystal: {
     id: "crystal", name: "Pháo Đài Tinh Thể", kind: "milestone", milestone: 10, hpMul: 2.4, timeMul: 1.4, stars: 4, color: "#7ff0ff", ability: "shield",
     power: "Khiên tinh thể tự hồi — phá khiên rồi mới đánh được thân!", w: 620, h: 560, cx: 310, cy: 280, scale: 0.72, hitRx: 170, hitRy: 210, hitCy: 0, bellyY: 250,
@@ -86,7 +90,7 @@ export const BOSSES: Record<BossId, BossDef> = {
   },
 };
 
-export const RANDOM_BOSSES: BossId[] = ["gold", "octopus", "stealth", "spider"];
+export const RANDOM_BOSSES: BossId[] = ["gold", "octopus", "stealth", "spider", "devourer"];
 
 /** Mốc chuỗi thắng: 10, 20, 30, 50, rồi cứ +25 (75, 100, 125…) */
 export function isMilestone(streak: number) {
@@ -122,6 +126,8 @@ export function makeBossSprite(id: BossId): Img {
       return makeSaucer("rgba(90,255,80,0.22)");
     case "dragon":
       return makeSaucer("rgba(150,90,255,0.35)");
+    case "devourer":
+      return makeSaucer("rgba(255,120,40,0.3)");
     case "crystal":
       return makeCrystal();
     case "mother":
@@ -571,6 +577,7 @@ import artPlanet from "../assets/bosses/planet.webp";
 import artStealth from "../assets/bosses/stealth.webp";
 import artSpider from "../assets/bosses/spider.webp";
 import artDragon from "../assets/bosses/dragon.webp";
+import artDevourer from "../assets/bosses/devourer.webp";
 import artUfo from "../assets/bosses/ufo.webp";
 
 export interface BossArt {
@@ -596,6 +603,7 @@ export const BOSS_ART: Record<BossId, BossArt> = {
   crystal: { url: artCrystal, width: 420, cx: 0.5, cy: 0.5, hitRx: 160, hitRy: 190, hitCy: 0, belly: 215 },
   mother: { url: artMother, width: 840, cx: 0.5, cy: 0.5, hitRx: 380, hitRy: 100, hitCy: -15, belly: 200 },
   planet: { url: artPlanet, width: 460, cx: 0.505, cy: 0.51, hitRx: 175, hitRy: 175, hitCy: 0, belly: 190 },
+  devourer: { url: artDevourer, width: 540, cx: 0.499, cy: 0.519, hitRx: 230, hitRy: 220, hitCy: 0, belly: 20 },
   dragon: { url: artDragon, width: 640, cx: 0.525, cy: 0.5, hitRx: 230, hitRy: 210, hitCy: 10, belly: 230 },
 };
 
