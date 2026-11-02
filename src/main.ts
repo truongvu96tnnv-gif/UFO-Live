@@ -109,7 +109,7 @@ addEventListener("pointerdown", () => game.sfx.unlock());
 // chế độ demo: chạm vào màn hình = thả tim, thanh nút + bảng quà để thử trên điện thoại
 const you: LiveUser = { id: "you", name: "Bạn", avatar: "demo:200" };
 // nút "Gọi trùm": đánh ngay trùm kế tiếp trong danh sách để xem model & kỹ năng
-const BOSS_ORDER: BossId[] = ["gold", "octopus", "stealth", "spider", "cruiser", "crystal", "mother", "planet"];
+const BOSS_ORDER: BossId[] = ["gold", "octopus", "stealth", "spider", "crystal", "mother", "planet"];
 let bossI = -1;
 // lời nhắc bật âm thanh (trình duyệt chặn tiếng tới khi người xem chạm)
 const hint = document.createElement("button");

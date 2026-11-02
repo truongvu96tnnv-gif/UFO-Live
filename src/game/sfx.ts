@@ -25,7 +25,6 @@ const HUM: Record<BossId, [number, number, number]> = {
   octopus: [40, 200, 0.8],
   stealth: [64, 520, 0.6],
   spider: [58, 420, 0.9],
-  cruiser: [36, 240, 1.2],
   crystal: [73, 760, 0.7],
   mother: [30, 210, 1.3],
   planet: [26, 180, 1.4],

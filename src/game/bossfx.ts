@@ -6,7 +6,6 @@ import type { Img } from "./sprites";
  * Chuyển động & hiệu ứng động của trùm, phân tích từ video giới thiệu boss:
  *  UFO        — lơ lửng nhấp nhô, chao nghiêng; 3 luồng phản lực xanh dưới bụng chập chờn; đèn đỏ chạy quanh vành
  *  Đĩa Vàng   — đứng tại chỗ; vòng năng lượng vàng quay quanh đĩa (vệt sao chổi); tia đỏ từ viên ngọc bắn lên
- *  Chiến Hạm  — bay vào từ trái; 2 luồng lửa cam ở đuôi + khói; mũi chúi lên xuống nhẹ
  *  Tinh Thể   — bồng bềnh; lõi plasma đập sáng + tia điện; mảnh tinh thể bay vòng quanh (có trước/sau)
  *  Bạch Tuộc  — xúc tu cuộn/duỗi chậm, lệch nhịp từng chiếc (xem octopusWarp trong game.ts)
  *  Phi Thuyền Mẹ — 2 vòng con quay chéo chữ X quay quanh vòm; ánh xanh dưới bụng đập
@@ -20,7 +19,6 @@ export const MOTION: Record<BossId, { bob: number; bobHz: number; roll: number; 
   octopus: { bob: 8, bobHz: 0.38, roll: 0.03, rollHz: 0.22, spin: 0 },
   stealth: { bob: 7, bobHz: 0.45, roll: 0.06, rollHz: 0.3, spin: 0 },
   spider: { bob: 6, bobHz: 0.5, roll: 0.03, rollHz: 0.32, spin: 0 },
-  cruiser: { bob: 6, bobHz: 0.35, roll: 0.025, rollHz: 0.28, spin: 0 },
   crystal: { bob: 12, bobHz: 0.3, roll: 0.015, rollHz: 0.2, spin: 0 },
   mother: { bob: 5, bobHz: 0.25, roll: 0.015, rollHz: 0.18, spin: 0 },
   planet: { bob: 4, bobHz: 0.2, roll: 0, rollHz: 0, spin: 0.06 },
@@ -148,21 +146,6 @@ function ufoChase(ctx: CanvasRenderingContext2D, k: FxCtx) {
     ctx.globalAlpha = (0.55 + 0.45 * Math.sin(k.t * 8 + i)) * k.alpha;
     ctx.drawImage(k.glows[1], x - 16, y - 12, 32, 24);
   }
-  ctx.restore();
-}
-
-// ---------------- Chiến Hạm: lửa đuôi ----------------
-
-function cruiserFlames(ctx: CanvasRenderingContext2D, k: FxCtx) {
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  [0.42, 0.56].forEach((fy, i) => {
-    const [x, y] = k.at(0.01, fy);
-    const len = 120 + 35 * Math.sin(k.t * 17 + i * 2) + 20 * Math.random();
-    ctx.globalAlpha = 0.95 * k.alpha;
-    jet(ctx, x + 6, y, Math.PI + 0.08, len, 34, "rgba(255,250,220,1)", "rgba(255,140,40,0.85)");
-    ctx.drawImage(k.glows[0], x - 30, y - 26, 60, 52);
-  });
   ctx.restore();
 }
 
@@ -336,9 +319,6 @@ export function bossUnder(ctx: CanvasRenderingContext2D, id: BossId, k: FxCtx) {
       break;
     case "gold":
       goldRings(ctx, k, false);
-      break;
-    case "cruiser":
-      cruiserFlames(ctx, k);
       break;
     case "crystal":
       crystalShards(ctx, k, false);

@@ -47,7 +47,7 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 
 ## Trùm
 
-**Chuỗi thắng** = số vòng thắng liên tiếp (thua 1 vòng là về 0). Tỉ số, chuỗi và kỷ lục được lưu trong trình duyệt nên tải lại trang giữa buổi live không mất. HUD luôn hiện `🔥 CHUỖI 3/5`, màn nghỉ nhắc "thắng thêm 2 trận gặp Chiến Hạm Đỏ". Thua trùm thì màn hình báo chuỗi bị cắt đứt.
+**Chuỗi thắng** = số vòng thắng liên tiếp (thua 1 vòng là về 0). Tỉ số, chuỗi và kỷ lục được lưu trong trình duyệt nên tải lại trang giữa buổi live không mất. HUD luôn hiện `🔥 CHUỖI 7/10`, màn nghỉ nhắc "thắng thêm 3 trận gặp Pháo Đài Tinh Thể". Thua trùm thì màn hình báo chuỗi bị cắt đứt.
 
 | Trùm | Xuất hiện | Model | Kỹ năng | Máu / thời gian |
 |---|---|---|---|---|
@@ -56,7 +56,6 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 | Bạch Tuộc Vũ Trụ | ngẫu nhiên | đầu thịt tím lốm đốm, mắt vàng con ngươi dọc, 8 xúc tu uốn lượn | **Xúc tu tóm người**: nhấc 1 bong bóng lên; cả phòng dồn đủ sát thương trong 6 s thì cứu được, không thì người đó bị bắt và UFO hạ thêm 3 km | ×1,8 / ×1,1 |
 | Tàu Tàng Hình Bóng Đêm | ngẫu nhiên | cánh bay chữ V đen nhám viền neon | **Tàng hình** 4 s trong mỗi 11 s: 70% sát thương bị trượt | ×1,6 / ×0,9 |
 | Nhện Vũ Trụ | ngẫu nhiên | nhện cơ khí 8 chân, 2 súng gatling trên lưng, lõi xanh (chân bò so le bằng lưới biến dạng) | **Lưới tơ** = 8% máu giăng dưới bụng: tim (laser) dính tơ chỉ gây 30%; bình luận (tên lửa) & quà xé lưới; rách thì 12 s sau giăng lại | ×2 / ×1,1 |
-| Chiến Hạm Đỏ | chuỗi **5** | chiến hạm dài, 4 tháp pháo, ống phụt xanh | **Pháo phản công** mỗi 8 s: 3 cầu điện bắn vào bong bóng người xem, ai trúng bị choáng 5 s (sát thương −50%) | ×2 / ×1,3 |
 | Pháo Đài Tinh Thể | chuỗi **10** | cụm tinh thể lục giác, vòng phù văn quay | **Khiên tinh thể** = 12% máu, hứng sát thương trước; vỡ thì 12 s sau tự hồi | ×2,4 / ×1,4 |
 | Phi Thuyền Mẹ | chuỗi **20** | đĩa khổng lồ 3 tầng, vòm kính, khoang chứa phát sáng | **UFO con**: mỗi 7 s thả 2 chiếc lao xuống phố; chạm phố là bắt 1 người. ~45% đạn tự nhắm UFO con | ×2,8 / ×1,5 |
 | Hành Tinh Hủy Diệt | chuỗi **30, 50, 75, 100…** | khối cầu nứt dung nham, vành đai nghiêng, mắt khổng lồ | **Mắt hủy diệt** sạc 5 s: dồn đủ 7% máu để ngắt, không thì tia đỏ bắn xuống, UFO tụt 8 km | ×3,2 / ×1,6 |
@@ -73,13 +72,13 @@ Mỗi kỹ năng có dòng nhắc nhấp nháy trên HUD (vd. `🐙 CỨU AN: 12
   ```
 
   rồi thêm 1 dòng vào `BOSS_ANIM` trong `src/game/bosses.ts`. Công cụ tự căn tâm thân từng khung (khung gốc lệch tới ~100 px làm hình nhảy), nới ô, xoá mảnh khung bên cạnh lọt sang, làm mờ mép bị cắt. Boss có hoạt ảnh `attack` và không có kỹ năng riêng thì cứ 8–12 giây sạc rồi xả 5 tia laser đỏ xuống phố (chỉ hiệu ứng).
-- **Chuyển động trùm** (`src/game/bossfx.ts`) phân tích từ video giới thiệu boss: mỗi trùm có nhịp lơ lửng/chao riêng; UFO phụt 4 luồng phản lực xanh + đèn chạy quanh vành; Đĩa Vàng có 2 vòng năng lượng quay quanh + tia đỏ từ ngọc; Chiến Hạm bay vào từ trái, 2 luồng lửa đuôi + khói; Pháo Đài Tinh Thể có lõi plasma đập, tia điện, 12 mảnh tinh thể bay vòng (che trước/sau); Bạch Tuộc cuộn/duỗi xúc tu chậm (lưới biến dạng); Phi Thuyền Mẹ có 2 vòng con quay chữ X quay quanh vòm + ánh xanh dưới bụng; Hành Tinh xoay chậm, viền lửa lập loè, vành đá vụn bay quanh. Mỗi trùm có lớp hiệu ứng động riêng vẽ chồng lên art: mắt bạch tuộc sáng/chớp, nhiễu sóng khi tàu tàng hình, lõi tinh thể đập + vòng phù văn + khiên, dung nham phập phồng & lõi sạc pháo của hành tinh, đèn khoang phi thuyền mẹ, chớp nòng chiến hạm. Ảnh chưa tải được thì tự dùng model vẽ bằng code.
+- **Chuyển động trùm** (`src/game/bossfx.ts`) phân tích từ video giới thiệu boss: mỗi trùm có nhịp lơ lửng/chao riêng; UFO phụt 4 luồng phản lực xanh + đèn chạy quanh vành; Đĩa Vàng có 2 vòng năng lượng quay quanh + tia đỏ từ ngọc; Pháo Đài Tinh Thể có lõi plasma đập, tia điện, 12 mảnh tinh thể bay vòng (che trước/sau); Bạch Tuộc cuộn/duỗi xúc tu chậm (lưới biến dạng); Phi Thuyền Mẹ có 2 vòng con quay chữ X quay quanh vòm + ánh xanh dưới bụng; Hành Tinh xoay chậm, viền lửa lập loè, vành đá vụn bay quanh. Mỗi trùm có lớp hiệu ứng động riêng vẽ chồng lên art: mắt bạch tuộc sáng/chớp, nhiễu sóng khi tàu tàng hình, lõi tinh thể đập + vòng phù văn + khiên, dung nham phập phồng & lõi sạc pháo của hành tinh, đèn khoang phi thuyền mẹ, chớp nòng chiến hạm. Ảnh chưa tải được thì tự dùng model vẽ bằng code.
 - **Khung cảnh** (`src/game/scene.ts`): mây trôi quanh UFO, khói phủ mái nhà, đám cháy trên mái, 4 tháp pháo phòng không xoay nòng theo UFO và bắn đạn vạch đường (càng nhiều người bắn, tháp pháo bắn càng dày), tàn lửa bay lên. Thuần trang trí, không gây sát thương.
 - **Âm thanh** (`src/game/audio/`, tự tổng hợp bằng WebAudio — không file nhạc, không lo bản quyền):
   - *Nhạc nền đổi theo trận* (chuyển ở đầu ô nhịp): chờ 90 BPM êm · vào trận 112 BPM (Am–F–C–G, kick 4/4, bass nảy, arpeggio) · UFO sắp chạm đất 128 BPM dồn dập + tiếng rít dâng · trùm 100 BPM nửa nhịp nặng, kèn đồng trầm, hợp xướng · kèn chiến thắng / nhạc thua. Đạn vàng làm nhạc sáng hơn.
   - *Không khí*: gió đêm thành phố, tiếng động cơ UFO trầm & to dần khi hạ thấp (mỗi trùm âm sắc riêng), pháo phòng không nổ xa.
   - *Hiệu ứng*: laser, tên lửa rít (to theo cỡ), nổ 3 lớp có vang, UFO nổ tung nhiều đợt, pháo hoa, xu, đạn vàng, rương xu, 3 loại tia năng lượng, còi báo động, "braam" khi trùm xuất hiện, tiếng kỹ năng trùm (tóm, xẹt điện, khiên pha lê, kính vỡ, UFO con, sạc mắt hủy diệt).
-  - *Giọng riêng từng boss* (`audio/voices.ts`): xuất hiện · bị đau · bắn trả · gục ngã — UFO tiếng theremin rền rĩ, Đĩa Vàng chiêng & kèn hoàng gia + mưa xu khi chết, Bạch Tuộc gào (formant) & nhớp nháp, Tàu Tàng Hình phản lực lướt + ra-đa, Chiến Hạm còi tàu chiến + thép rên, Tinh Thể hợp âm pha lê + vỡ vụn, Phi Thuyền Mẹ "BRAAAM" kép, Hành Tinh động đất + hợp xướng.
+  - *Giọng riêng từng boss* (`audio/voices.ts`): xuất hiện · bị đau · bắn trả · gục ngã — UFO tiếng theremin rền rĩ, Đĩa Vàng chiêng & kèn hoàng gia + mưa xu khi chết, Bạch Tuộc gào (formant) & nhớp nháp, Tàu Tàng Hình phản lực lướt + ra-đa, Tinh Thể hợp âm pha lê + vỡ vụn, Phi Thuyền Mẹ "BRAAAM" kép, Hành Tinh động đất + hợp xướng.
   - *Trúng đạn theo chất liệu*: kim loại (keng + đạn nảy "piu"), vàng (chuông), thịt (bẹp), pha lê (tinh tang), đá (ục + vụn).
   - *5 kiểu súng laser* — pew, zap (điện), blaster, plasma, rail — mỗi người xem cố định 1 kiểu theo tài khoản; đạn vàng thêm tiếng chuông. Tên lửa hoa hồng & bình luận huýt sáo "vèo", bom pháo giấy "bốp".
   - Bộ nén + chặn đỉnh ở cuối để không vỡ tiếng; tiếng đặt trái–phải theo vị trí trên màn.

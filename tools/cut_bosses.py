@@ -4,7 +4,7 @@ src/assets/bosses/<id>.webp có nền trong suốt.
 
   python -m venv .venv && .venv/bin/pip install "rembg[cpu]" opencv-python-headless pillow
   .venv/bin/python tools/cut_bosses.py            # cả 8 trùm (mỗi trùm 1 tiến trình — model BiRefNet ~1 GB RAM)
-  .venv/bin/python tools/cut_bosses.py cruiser    # chỉ 1 trùm
+  .venv/bin/python tools/cut_bosses.py gold       # chỉ 1 trùm
 
 - 6 trùm thân đặc: rembg + model BiRefNet (mép sắc, không dính khói/lửa/vạch lưới của ảnh gốc).
 - Pháo Đài Tinh Thể: hình dáng từ BiRefNet + độ đặc theo độ sáng tinh thể (BiRefNet coi tinh thể phát sáng là trong suốt).

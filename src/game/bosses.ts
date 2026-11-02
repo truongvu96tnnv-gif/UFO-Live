@@ -4,8 +4,7 @@ import { canvas, makeSaucer, SCX, SCY, SH, SW, type Img } from "./sprites";
 /**
  * Danh sách trùm. Mỗi trùm có model vẽ riêng (sprite tĩnh + lớp động vẽ mỗi khung) và 1 kỹ năng đặc trưng.
  *
- *  Trùm theo MỐC CHUỖI THẮNG (thắng liên tiếp 5 / 10 / 20 / 30… vòng thì vòng kế tiếp gặp trùm):
- *    5  → Chiến Hạm Đỏ        — pháo phản công làm choáng người bắn
+ *  Trùm theo MỐC CHUỖI THẮNG (thắng liên tiếp 10 / 20 / 30 / 50… vòng thì vòng kế tiếp gặp trùm):
  *    10 → Pháo Đài Tinh Thể   — khiên tinh thể tự hồi
  *    20 → Phi Thuyền Mẹ       — thả UFO con xuống bắt người
  *    30, 50, 75, 100… → Hành Tinh Hủy Diệt — sạc pháo hủy diệt, phải dồn sát thương để ngắt sạc
@@ -13,7 +12,7 @@ import { canvas, makeSaucer, SCX, SCY, SH, SW, type Img } from "./sprites";
  *    Đĩa Vàng Hoàng Gia (giáp dày) · Bạch Tuộc Vũ Trụ (xúc tu bắt người) · Tàu Tàng Hình (đạn bắn trượt khi tàng hình)
  */
 
-export type BossId = "ufo" | "gold" | "octopus" | "stealth" | "spider" | "cruiser" | "crystal" | "mother" | "planet";
+export type BossId = "ufo" | "gold" | "octopus" | "stealth" | "spider" | "crystal" | "mother" | "planet";
 export type Ability = "none" | "armor" | "grab" | "cloak" | "web" | "counter" | "shield" | "drones" | "charge";
 
 export interface BossDef {
@@ -66,10 +65,6 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: "spider", name: "Nhện Vũ Trụ", kind: "random", hpMul: 2, timeMul: 1.1, stars: 3, color: "#7dff4a", ability: "web",
     power: "Giăng lưới tơ: tim (laser) dính lưới chỉ gây 30% — bình luận & quà mới xé được lưới!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.8, hitRx: 280, hitRy: 70, hitCy: 0, bellyY: 70,
   },
-  cruiser: {
-    id: "cruiser", name: "Chiến Hạm Đỏ", kind: "milestone", milestone: 5, hpMul: 2, timeMul: 1.3, stars: 4, color: "#ff5a6e", ability: "counter",
-    power: "Pháo phản công bắn choáng người xem — sát thương của họ giảm một nửa!", w: 920, h: 300, cx: 460, cy: 150, scale: 0.84, hitRx: 400, hitRy: 55, hitCy: 5, bellyY: 55,
-  },
   crystal: {
     id: "crystal", name: "Pháo Đài Tinh Thể", kind: "milestone", milestone: 10, hpMul: 2.4, timeMul: 1.4, stars: 4, color: "#7ff0ff", ability: "shield",
     power: "Khiên tinh thể tự hồi — phá khiên rồi mới đánh được thân!", w: 620, h: 560, cx: 310, cy: 280, scale: 0.72, hitRx: 170, hitRy: 210, hitCy: 0, bellyY: 250,
@@ -86,9 +81,9 @@ export const BOSSES: Record<BossId, BossDef> = {
 
 export const RANDOM_BOSSES: BossId[] = ["gold", "octopus", "stealth", "spider"];
 
-/** Mốc chuỗi thắng: 5, 10, 20, 30, 50, rồi cứ +25 (75, 100, 125…) */
+/** Mốc chuỗi thắng: 10, 20, 30, 50, rồi cứ +25 (75, 100, 125…) */
 export function isMilestone(streak: number) {
-  return [5, 10, 20, 30, 50].includes(streak) || (streak > 50 && streak % 25 === 0);
+  return [10, 20, 30, 50].includes(streak) || (streak > 50 && streak % 25 === 0);
 }
 
 export function nextMilestone(streak: number) {
@@ -100,8 +95,7 @@ export function nextMilestone(streak: number) {
 export function milestoneBoss(streak: number): BossId {
   if (streak >= 30) return "planet";
   if (streak >= 20) return "mother";
-  if (streak >= 10) return "crystal";
-  return "cruiser";
+  return "crystal";
 }
 
 // ======================= sprite tĩnh =======================
@@ -118,8 +112,6 @@ export function makeBossSprite(id: BossId): Img {
       return makeStealth();
     case "spider":
       return makeSaucer("rgba(90,255,80,0.22)");
-    case "cruiser":
-      return makeCruiser();
     case "crystal":
       return makeCrystal();
     case "mother":
@@ -292,100 +284,6 @@ function makeStealth(): Img {
     g.lineTo(cx + s * 125, 142);
     g.lineTo(cx + s * 62, 132);
     g.fill();
-  }
-  return c;
-}
-
-/** Chiến hạm đỏ: thân dài bọc giáp, sọc đỏ, tháp chỉ huy, 4 tháp pháo nòng đôi, 3 ống phụt ở đuôi */
-function makeCruiser(): Img {
-  const W = 920, H = 300;
-  const [c, g] = canvas(W, H);
-  const rnd = mulberry32(77);
-  const hull = g.createLinearGradient(0, 105, 0, 205);
-  hull.addColorStop(0, "#8a909c");
-  hull.addColorStop(0.35, "#4a4f5a");
-  hull.addColorStop(0.7, "#2b1418");
-  hull.addColorStop(1, "#120709");
-  g.fillStyle = hull;
-  g.beginPath();
-  g.moveTo(60, 118);
-  g.lineTo(700, 108);
-  g.lineTo(890, 152);
-  g.lineTo(700, 205);
-  g.lineTo(90, 205);
-  g.lineTo(55, 182);
-  g.closePath();
-  g.fill();
-  // tấm giáp
-  g.strokeStyle = "rgba(0,0,0,0.45)";
-  g.lineWidth = 1.5;
-  for (let x = 120; x < 700; x += 46 + rnd() * 20) {
-    g.beginPath();
-    g.moveTo(x, 112);
-    g.lineTo(x - 10, 204);
-    g.stroke();
-  }
-  // sọc đỏ & dải cửa sổ
-  g.fillStyle = "#d61f3a";
-  g.beginPath();
-  g.moveTo(70, 160);
-  g.lineTo(820, 158);
-  g.lineTo(840, 166);
-  g.lineTo(80, 170);
-  g.fill();
-  for (let x = 120; x < 760; x += 14) {
-    if (rnd() < 0.7) {
-      g.fillStyle = `rgba(255,${200 + rnd() * 50},120,0.9)`;
-      g.fillRect(x, 140, 6, 4);
-    }
-  }
-  // boong trên
-  g.fillStyle = "#3d424c";
-  g.beginPath();
-  g.moveTo(180, 112);
-  g.lineTo(210, 84);
-  g.lineTo(610, 82);
-  g.lineTo(650, 110);
-  g.closePath();
-  g.fill();
-  g.strokeStyle = "rgba(220,230,250,0.4)";
-  g.beginPath();
-  g.moveTo(210, 84);
-  g.lineTo(610, 82);
-  g.stroke();
-  // tháp chỉ huy
-  g.fillStyle = "#2e323a";
-  g.fillRect(420, 40, 84, 44);
-  g.fillStyle = "#7ff0ff";
-  for (let i = 0; i < 5; i++) g.fillRect(428 + i * 15, 52, 9, 6);
-  g.fillStyle = "#1c1f25";
-  g.fillRect(458, 6, 4, 36);
-  g.fillRect(446, 16, 28, 3);
-  // tháp pháo
-  for (const tx of [260, 350, 570, 650]) {
-    const ty = tx > 500 ? 88 : 90;
-    g.fillStyle = "#23262d";
-    g.fillRect(tx + 8, ty - 22, 46, 5);
-    g.fillRect(tx + 8, ty - 13, 46, 5);
-    const dome = g.createLinearGradient(0, ty - 30, 0, ty);
-    dome.addColorStop(0, "#9aa0ab");
-    dome.addColorStop(1, "#3a3e47");
-    g.fillStyle = dome;
-    g.beginPath();
-    g.ellipse(tx, ty - 8, 26, 20, 0, Math.PI, 0);
-    g.fill();
-    g.fillStyle = "#d61f3a";
-    g.fillRect(tx - 18, ty - 10, 36, 3);
-  }
-  // ống phụt đuôi
-  for (const ey of [132, 160, 188]) {
-    g.fillStyle = "#15171c";
-    g.beginPath();
-    g.ellipse(55, ey, 12, 14, 0, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = "#5a5f6b";
-    g.lineWidth = 3;
-    g.stroke();
   }
   return c;
 }
@@ -655,7 +553,6 @@ export const PLANET_EYE = { x: 0, y: 10 };
 // ======================= art vẽ tay (bộ asset) =======================
 // Ảnh trùm tách nền từ art-source/bosses-sheet.webp (xem tools/cut_bosses.py). Khi ảnh chưa tải xong
 // (hoặc lỗi) game tự dùng model vẽ bằng code ở trên.
-import artCruiser from "../assets/bosses/cruiser.webp";
 import artCrystal from "../assets/bosses/crystal.webp";
 import artGold from "../assets/bosses/gold.webp";
 import artMother from "../assets/bosses/mother.webp";
@@ -685,7 +582,6 @@ export const BOSS_ART: Record<BossId, BossArt> = {
   octopus: { url: artOctopus, width: 500, cx: 0.5, cy: 0.42, hitRx: 210, hitRy: 120, hitCy: -40, belly: 45 },
   stealth: { url: artStealth, width: 660, cx: 0.5, cy: 0.55, hitRx: 290, hitRy: 55, hitCy: 0, belly: 60 },
   spider: { url: artSpider, width: 470, cx: 0.495, cy: 0.43, hitRx: 200, hitRy: 95, hitCy: -15, belly: 130 },
-  cruiser: { url: artCruiser, width: 780, cx: 0.5, cy: 0.52, hitRx: 340, hitRy: 85, hitCy: 0, belly: 100 },
   crystal: { url: artCrystal, width: 420, cx: 0.5, cy: 0.5, hitRx: 160, hitRy: 190, hitCy: 0, belly: 215 },
   mother: { url: artMother, width: 840, cx: 0.5, cy: 0.5, hitRx: 380, hitRy: 100, hitCy: -15, belly: 200 },
   planet: { url: artPlanet, width: 460, cx: 0.505, cy: 0.51, hitRx: 175, hitRy: 175, hitCy: 0, belly: 190 },

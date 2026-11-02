@@ -915,7 +915,7 @@ export class Game {
   private damage(user: LiveUser, dmg: number, x: number, y: number, big: boolean, boost = false, laser = false) {
     if (this.phase !== "battle" || this.hp <= 0) return;
     if (boost && this.golden) dmg *= 2;
-    // bị Chiến Hạm Đỏ bắn choáng: sát thương giảm một nửa
+    // bị bắn choáng (kỹ năng "counter" — hiện chưa boss nào dùng): sát thương giảm một nửa
     if ((this.stun.get(user.id) ?? 0) > this.time) dmg *= 0.5;
     // Tàu Tàng Hình đang biến mất: phần lớn đạn trượt
     if (this.cloaked) {
@@ -1035,10 +1035,6 @@ export class Game {
     this.updateShots(dt);
     this.updateFx(dt);
     this.enemyShots = this.enemyShots.filter((e) => this.time - e.t0 < 0.5);
-    if (this.ufoAlive && this.bossDef.id === "cruiser" && this.art() && Math.random() < dt * 9) {
-      const half = BOSS_ART.cruiser.width / 2;
-      this.smoke.push({ x: this.ux - half - rand(10, 60), y: this.uy + rand(-30, 10), vx: rand(-90, -40), vy: rand(-25, 5), life: 0, max: rand(1.2, 2.2), size: rand(14, 24) });
-    }
     this.sfx.update({ phase: this.phase, progress: this.progress, boss: this.bossDef.id, bossKind: this.bossDef.kind, ufoAlive: this.ufoAlive, golden: this.golden });
     const geo = this.geo;
     this.scene.update(dt, { x: this.ux, y: this.uy + geo.cy, rx: geo.rx, ry: geo.ry, alive: this.ufoAlive && this.uy > 0, fighting: this.phase === "battle" });
@@ -1055,16 +1051,9 @@ export class Game {
   private updateIntro(dt: number) {
     const k = easeInOutCubic(clamp(this.phaseT / 2.4, 0, 1));
     const tx = CX + 180 * Math.sin(this.time * 0.6);
-    if (this.bossDef.id === "cruiser") {
-      // chiến hạm lướt ngang vào từ bên trái như trong video
-      this.ux = -560 + (tx + 560) * k;
-      this.uy = UFO_START_Y + 60 * (1 - k) - Math.sin(k * Math.PI) * 30;
-      this.tilt = (1 - k) * 0.06;
-    } else {
-      this.ux = W + 420 + (tx - W - 420) * k;
-      this.uy = -300 + (UFO_START_Y + 300) * k - Math.sin(k * Math.PI) * 120;
-      this.tilt = (1 - k) * -0.25;
-    }
+    this.ux = W + 420 + (tx - W - 420) * k;
+    this.uy = -300 + (UFO_START_Y + 300) * k - Math.sin(k * Math.PI) * 120;
+    this.tilt = (1 - k) * -0.25;
     if (this.at("siren2", 1.4)) this.sfx.siren();
     if (this.phaseT >= this.introDur) this.setPhase("battle");
   }
@@ -1602,7 +1591,7 @@ export class Game {
         break;
       }
       case "counter": {
-        // Chiến Hạm Đỏ: bắn 3 quả cầu điện vào bong bóng người xem → choáng 5 giây
+        // kỹ năng "counter" (để dành cho boss sau): bắn 3 quả cầu điện vào bong bóng người xem → choáng 5 giây
         if (now >= this.abilityT) {
           this.abilityT = now + 8;
           const cand = this.freePeople();
@@ -1802,17 +1791,6 @@ export class Game {
     }
     if (d.id === "octopus") this.drawTentacles(ctx, alpha);
     if (d.id === "crystal") this.drawCrystalRings(ctx, false);
-    if (d.id === "cruiser") {
-      // lửa phụt đuôi
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      for (const ey of [132, 160, 188]) {
-        const fl = 70 + Math.random() * 30;
-        ctx.globalAlpha = 0.9;
-        ctx.drawImage(this.glows[2], -d.cx + 55 - fl, ey - d.cy - 16, fl, 32);
-      }
-      ctx.restore();
-    }
     ctx.globalAlpha = alpha;
     ctx.drawImage(img, -d.cx, -d.cy);
     if (this.hitFlash > 0.02) {
@@ -1845,17 +1823,6 @@ export class Game {
           ctx.lineTo(0, -84);
           ctx.lineTo(370, 30);
           ctx.stroke();
-        }
-        break;
-      }
-      case "cruiser": {
-        for (let i = 0; i < 8; i++) {
-          if (Math.sin(t * 4 + i * 1.3) < 0.3) continue;
-          ctx.drawImage(this.glows[1], -380 + i * 100 - 10, 30, 20, 20);
-        }
-        if (this.muzzle > 0) {
-          ctx.globalAlpha = this.muzzle;
-          for (const tx of [260, 350, 570, 650]) ctx.drawImage(this.glows[1], tx - d.cx + 56 - 40, -84 - 40, 80, 80);
         }
         break;
       }
@@ -2003,7 +1970,7 @@ export class Game {
     const at = (fx: number, fy: number): [number, number] => [ox + w * fx, oy + h * fy];
     const danger = this.phase === "battle" && this.progress > 0.75;
     const alpha = 1 - 0.85 * this.cloak;
-    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, spider: 4, cruiser: 1, crystal: 6, mother: 0, planet: 1 };
+    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, spider: 4, crystal: 6, mother: 0, planet: 1 };
     ctx.save();
     const organic = d.id === "octopus" || d.id === "spider";
     // nhịp lơ lửng & chao nghiêng riêng từng trùm (đo từ video giới thiệu boss)
@@ -2077,20 +2044,6 @@ export class Game {
         ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 6);
         const [ex, ey] = at(0.5, 0.46);
         ctx.drawImage(this.glows[1], ex - 70, ey - 34, 140, 68);
-        break;
-      }
-      case "cruiser": {
-        // ống phụt ở đuôi (bên trái) & chớp nòng 4 tháp pháo trên boong
-        const [ex, ey] = at(0.01, 0.49);
-        ctx.globalAlpha = 0.7 + Math.random() * 0.3;
-        ctx.drawImage(this.glows[0], ex - 100, ey - 40, 120, 80);
-        if (this.muzzle > 0) {
-          ctx.globalAlpha = this.muzzle;
-          for (const [fx, fy] of [[0.22, 0.22], [0.29, 0.24], [0.48, 0.3], [0.57, 0.33]] as const) {
-            const [mx, my] = at(fx + 0.04, fy - 0.04);
-            ctx.drawImage(this.glows[1], mx - 40, my - 40, 80, 80);
-          }
-        }
         break;
       }
       case "crystal": {

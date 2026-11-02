@@ -16,7 +16,6 @@ export const MATERIAL: Record<BossId, Material> = {
   octopus: "flesh",
   stealth: "metal",
   spider: "metal",
-  cruiser: "metal",
   crystal: "glass",
   mother: "metal",
   planet: "rock",
@@ -292,19 +291,6 @@ export function bossIntro(e: Engine, t: number, id: BossId) {
       spray(e, t + 0.9, 0.8);
       horn(e, t + 0.5, false);
       break;
-    case "cruiser": {
-      // còi tàu chiến trầm 2 hồi + trống trận
-      for (const dt of [0, 1.1]) {
-        const g = e.gain(0, out, 0.5);
-        const lp = e.filter("lowpass", 600, 2);
-        lp.connect(g);
-        e.osc("sawtooth", 73.4, t + dt, 1, lp);
-        e.osc("sawtooth", 87.3, t + dt, 1, lp, 6);
-        e.hold(g.gain, t + dt, 0.13, 0.08, 0.7, 0.25);
-      }
-      horn(e, t + 2.1, true);
-      break;
-    }
     case "crystal": {
       // hợp âm pha lê dâng lên + tiếng ngân thuỷ tinh
       [72, 79, 84, 88, 91, 96].forEach((n, i) => {
@@ -427,7 +413,7 @@ export function bossHurt(e: Engine, t: number, id: BossId, x?: number) {
     default: {
       // kim loại: thân tàu rung "boong" + chập điện xẹt
       const g = e.gain(0, out, 0.35);
-      const f = id === "mother" || id === "cruiser" ? 85 : 140;
+      const f = id === "mother" ? 85 : 140;
       for (const m of [1, 1.58, 2.31, 3.1]) e.osc("triangle", f * m, t, 0.8, g);
       e.env(g.gain, t, 0.09, 0.002, 0.7);
       const zg = e.gain(0, out);
@@ -498,20 +484,6 @@ export function bossDeath(e: Engine, t: number, id: BossId) {
     case "mother":
       megaBoom(e, t + 0.9);
       crackle(e, t, 50, 3, e.sfx, 0.06, 1200);
-      break;
-    case "cruiser":
-      explode(e, t + 0.5, true, 250);
-      explode(e, t + 0.9, true, 820);
-      // thép rên rỉ
-      {
-        const cg = e.gain(0, e.sfx, 0.5);
-        const bp = e.filter("bandpass", 300, 12);
-        bp.connect(cg);
-        const co = e.osc("sawtooth", 60, t + 0.2, 1.8, bp);
-        co.frequency.linearRampToValueAtTime(45, t + 2);
-        e.sweep(bp.frequency, t + 0.2, 500, 180, 1.8);
-        e.hold(cg.gain, t + 0.2, 0.25, 0.2, 1, 0.6);
-      }
       break;
     default:
       break;
