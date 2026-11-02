@@ -346,7 +346,7 @@ export class Game {
     const bg = makeBackground();
     this.bg = bg.img;
     this.towers = bg.towers;
-    this.scene = new Scene(this.towers, this.glows, (x) => this.sfx.flak(x));
+    this.scene = new Scene(this.towers, this.glows);
     this.load();
     this.loadArts();
     for (const id of Object.keys(BOSS_ANIM) as BossId[]) this.anim(id);
@@ -966,7 +966,6 @@ export class Game {
       // Phi Thuyền Mẹ: gần nửa số đạn tự nhắm UFO con đang lao xuống
       drone: this.drones.length && kind !== "mega" && Math.random() < 0.45 ? pick(this.drones.filter((d) => !d.dead)) ?? null : null,
     });
-    this.scene.pulse(kind === "laser" ? 0.6 : 1);
     if (kind === "laser") this.sfx.laser(sx, this.gunOf(user), this.golden && !this.giftCtx);
     else if (fx === "rose" || (kind === "rocket" && !this.giftCtx)) this.sfx.whistle(sx, fx === "rose" ? 1 : 0.7);
     else if (fx === "confetti") {
@@ -1113,8 +1112,7 @@ export class Game {
     this.updateFx(dt);
     this.enemyShots = this.enemyShots.filter((e) => this.time - e.t0 < 0.5);
     this.sfx.update({ phase: this.phase, progress: this.progress, boss: this.bossDef.id, bossKind: this.bossDef.kind, ufoAlive: this.ufoAlive, golden: this.golden });
-    const geo = this.geo;
-    this.scene.update(dt, { x: this.ux, y: this.uy + geo.cy, rx: geo.rx, ry: geo.ry, alive: this.ufoAlive && this.uy > 0, fighting: this.phase === "battle" });
+    this.scene.update(dt);
     for (const p of this.people) p.pulse = Math.max(0, p.pulse - dt * 2.5);
   }
 
