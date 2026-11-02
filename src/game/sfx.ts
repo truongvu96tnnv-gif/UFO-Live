@@ -143,9 +143,11 @@ export class Sfx {
     const e = this.ok;
     if (!e || !this.music) return;
     let mode: Mode = "calm";
-    if (s.phase === "intro" || s.phase === "battle") mode = s.progress > 0.75 && s.phase === "battle" ? "danger" : s.bossKind !== "normal" ? "boss" : "battle";
-    if (s.phase === "win" || s.phase === "lose" || s.phase === "break") mode = "calm";
+    const bossRound = s.bossKind !== "normal";
+    if (s.phase === "intro" || s.phase === "battle") mode = bossRound ? "boss" : s.progress > 0.75 && s.phase === "battle" ? "danger" : "battle";
     this.music.set(mode);
+    this.music.setTheme(bossRound ? s.boss : null);
+    this.music.intense = s.phase === "battle" && s.progress > 0.75;
     this.music.bright = s.golden ? 1.6 : 1;
     if (this.hum) {
       const [f, cut, v] = HUM[s.boss];

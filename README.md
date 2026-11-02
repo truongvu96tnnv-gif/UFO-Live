@@ -77,6 +77,18 @@ Mỗi kỹ năng có dòng nhắc nhấp nháy trên HUD (vd. `🐙 CỨU AN: 12
 - **Chuyển động trùm** (`src/game/bossfx.ts`) phân tích từ video giới thiệu boss: mỗi trùm có nhịp lơ lửng/chao riêng; UFO phụt 4 luồng phản lực xanh + đèn chạy quanh vành; Đĩa Vàng có 2 vòng năng lượng quay quanh + tia đỏ từ ngọc; Pháo Đài Tinh Thể có lõi plasma đập, tia điện, 12 mảnh tinh thể bay vòng (che trước/sau); Bạch Tuộc cuộn/duỗi xúc tu chậm (lưới biến dạng); Phi Thuyền Mẹ có 2 vòng con quay chữ X quay quanh vòm + ánh xanh dưới bụng; Hành Tinh xoay chậm, viền lửa lập loè, vành đá vụn bay quanh. Mỗi trùm có lớp hiệu ứng động riêng vẽ chồng lên art: mắt bạch tuộc sáng/chớp, nhiễu sóng khi tàu tàng hình, lõi tinh thể đập + vòng phù văn + khiên, dung nham phập phồng & lõi sạc pháo của hành tinh, đèn khoang phi thuyền mẹ, chớp nòng chiến hạm. Ảnh chưa tải được thì tự dùng model vẽ bằng code.
 - **Khung cảnh** (`src/game/scene.ts`): mây trôi quanh UFO, khói phủ mái nhà, đám cháy trên mái, 4 tháp pháo phòng không xoay nòng theo UFO và bắn đạn vạch đường (càng nhiều người bắn, tháp pháo bắn càng dày), tàn lửa bay lên. Thuần trang trí, không gây sát thương.
 - **Âm thanh** (`src/game/audio/`, tự tổng hợp bằng WebAudio — không file nhạc, không lo bản quyền):
+  - *Nhạc chủ đề riêng từng boss* (`audio/themes.ts`, giữ suốt trận trùm; gần chạm đất thì dồn dập thêm hi-hat & tiếng rít):
+    | Boss | Chủ đề |
+    |---|---|
+    | Đĩa Vàng | 116 BPM hành khúc hoàng gia — trống quân hành, kèn trumpet giai điệu, chuông, chiêng (Rê trưởng) |
+    | Bạch Tuộc | 84 BPM nhịp 6/8 lắc lư — bass "ục ục", theremin rùng rợn (Mi thứ) |
+    | Tàu Tàng Hình | 132 BPM điện tử tối giản — hi-hat dày, clap, pluck staccato, ra-đa (Fa♯ thứ) |
+    | Nhện Vũ Trụ | 122 BPM công nghiệp — trống kim loại, arpeggio lách cách, bass méo (Đô thứ) |
+    | Kẻ Nuốt Hành Tinh | 70 BPM doom — bass dưới âm trượt xuống, hợp xướng tối, kèn đồng rất trầm (Si♭ thứ) |
+    | Pháo Đài Tinh Thể | 108 BPM — chuông pha lê arpeggio, pad sáng (Fa♯ thứ) |
+    | Phi Thuyền Mẹ | 96 BPM sử thi — trống taiko, hợp xướng dày, kèn đồng (Đô thứ) |
+    | Hành Tinh Hủy Diệt | 84 BPM u ám Phrygian — chuông nguyện hồn, trống nặng (Mi) |
+    | Rồng Không Gian | 144 BPM sử thi hoành tráng — double-kick, dây tremolo, kèn đồng, hợp xướng (Rê thứ hoà âm) |
   - *Nhạc nền đổi theo trận* (chuyển ở đầu ô nhịp): chờ 90 BPM êm · vào trận 112 BPM (Am–F–C–G, kick 4/4, bass nảy, arpeggio) · UFO sắp chạm đất 128 BPM dồn dập + tiếng rít dâng · trùm 100 BPM nửa nhịp nặng, kèn đồng trầm, hợp xướng · kèn chiến thắng / nhạc thua. Đạn vàng làm nhạc sáng hơn.
   - *Không khí*: gió đêm thành phố, tiếng động cơ UFO trầm & to dần khi hạ thấp (mỗi trùm âm sắc riêng), pháo phòng không nổ xa.
   - *Hiệu ứng*: laser, tên lửa rít (to theo cỡ), nổ 3 lớp có vang, UFO nổ tung nhiều đợt, pháo hoa, xu, đạn vàng, rương xu, 3 loại tia năng lượng, còi báo động, "braam" khi trùm xuất hiện, tiếng kỹ năng trùm (tóm, xẹt điện, khiên pha lê, kính vỡ, UFO con, sạc mắt hủy diệt).
