@@ -676,9 +676,9 @@ export const BOSS_ART: Record<BossId, BossArt> = {
   ufo: { url: artUfo, width: 500, cx: 0.5, cy: 0.5, hitRx: 225, hitRy: 70, hitCy: -5, belly: 95 },
   gold: { url: artGold, width: 560, cx: 0.5, cy: 0.52, hitRx: 240, hitRy: 85, hitCy: 0, belly: 95 },
   octopus: { url: artOctopus, width: 500, cx: 0.5, cy: 0.42, hitRx: 210, hitRy: 120, hitCy: -40, belly: 45 },
-  stealth: { url: artStealth, width: 660, cx: 0.5, cy: 0.62, hitRx: 290, hitRy: 55, hitCy: 0, belly: 70 },
-  cruiser: { url: artCruiser, width: 720, cx: 0.5, cy: 0.55, hitRx: 320, hitRy: 80, hitCy: 0, belly: 95 },
-  crystal: { url: artCrystal, width: 470, cx: 0.5, cy: 0.5, hitRx: 160, hitRy: 190, hitCy: 0, belly: 215 },
+  stealth: { url: artStealth, width: 660, cx: 0.5, cy: 0.55, hitRx: 290, hitRy: 60, hitCy: 0, belly: 75 },
+  cruiser: { url: artCruiser, width: 780, cx: 0.5, cy: 0.5, hitRx: 340, hitRy: 85, hitCy: 0, belly: 100 },
+  crystal: { url: artCrystal, width: 420, cx: 0.5, cy: 0.5, hitRx: 160, hitRy: 190, hitCy: 0, belly: 215 },
   mother: { url: artMother, width: 840, cx: 0.5, cy: 0.5, hitRx: 380, hitRy: 100, hitCy: -15, belly: 200 },
   planet: { url: artPlanet, width: 460, cx: 0.505, cy: 0.51, hitRx: 175, hitRy: 175, hitCy: 0, belly: 190 },
 };

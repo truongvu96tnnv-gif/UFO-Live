@@ -977,7 +977,7 @@ export class Game {
     const tx = CX + sway * Math.sin(this.time * 0.55) + 50 * Math.sin(this.time * 1.7);
     const ty = lerp(UFO_START_Y, UFO_LAND_Y, this.progress) + Math.sin(this.time * 1.3) * 10 - this.kick;
     // trùm to (Phi Thuyền Mẹ…) lượn hẹp lại để không tràn khỏi màn hình
-    const half = this.geo.rx + 20;
+    const half = Math.max(this.geo.rx + 20, this.art() ? BOSS_ART[this.bossDef.id].width / 2 + 8 : 0);
     this.moveUfo(clamp(tx, Math.min(CX, half), Math.max(CX, W - half)), ty, 3, dt);
     // gần đất: tia hút chập chờn doạ người xem
     if (this.progress > 0.55) {
@@ -1873,18 +1873,19 @@ export class Game {
       }
       case "stealth": {
         ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 6);
-        const [ex, ey] = at(0.5, 0.56);
+        const [ex, ey] = at(0.5, 0.59);
         ctx.drawImage(this.glows[1], ex - 70, ey - 34, 140, 68);
         break;
       }
       case "cruiser": {
-        const [ex, ey] = at(0.04, 0.42);
+        // ống phụt ở đuôi (bên trái) & chớp nòng 4 tháp pháo trên boong
+        const [ex, ey] = at(0.01, 0.42);
         ctx.globalAlpha = 0.7 + Math.random() * 0.3;
-        ctx.drawImage(this.glows[0], ex - 90, ey - 40, 120, 80);
+        ctx.drawImage(this.glows[0], ex - 100, ey - 40, 120, 80);
         if (this.muzzle > 0) {
           ctx.globalAlpha = this.muzzle;
-          for (const fx of [0.27, 0.34, 0.55, 0.63]) {
-            const [mx, my] = at(fx, 0.14);
+          for (const [fx, fy] of [[0.22, 0.24], [0.29, 0.27], [0.5, 0.31], [0.6, 0.34]] as const) {
+            const [mx, my] = at(fx + 0.04, fy - 0.03);
             ctx.drawImage(this.glows[1], mx - 40, my - 40, 80, 80);
           }
         }

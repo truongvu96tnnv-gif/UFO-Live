@@ -20,9 +20,30 @@ OUT = "src/assets/bosses"
 IDS = ["ufo", "gold", "octopus", "stealth", "cruiser", "crystal", "mother", "planet"]
 
 
+# Vùng cắt riêng cho trùm tràn ra ngoài ô 500 px (mũi chiến hạm, gai đĩa vàng) — đo trên ảnh gốc
+CROP = {
+    "gold": (505, 0, 1035, 490),
+    "cruiser": (0, 600, 582, 1045),
+    "crystal": (583, 560, 1000, 1045),
+}
+
+
 def cell(i):
+    if IDS[i] in CROP:
+        return CROP[IDS[i]]
     col, row = i % 4, i // 4
     return (col * 500, 0 if row == 0 else 560, (col + 1) * 500, 490 if row == 0 else 1045)
+
+
+def keep_main(im):
+    """Chỉ giữ thân chính (thành phần lớn nhất) — bỏ mảnh lạc của trùm bên cạnh lọt vào vùng cắt"""
+    arr = np.array(im)
+    m = cv2.dilate((arr[..., 3] > 30).astype(np.uint8), np.ones((15, 15), np.uint8))
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(m)
+    if n > 2:
+        keep = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
+        arr[..., 3][lab != keep] = 0
+    return Image.fromarray(arr, "RGBA")
 
 
 def trim_save(im, name):
@@ -50,7 +71,7 @@ def main():
             n, lab, stats, _ = cv2.connectedComponentsWithStats(m)
             keep = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
             a *= cv2.GaussianBlur((lab == keep).astype(np.float32), (31, 31), 0)
-            trim_save(Image.fromarray(np.dstack([c, a * 255]).clip(0, 255).astype(np.uint8), "RGBA"), bid)
+            trim_save(keep_main(Image.fromarray(np.dstack([c, a * 255]).clip(0, 255).astype(np.uint8), "RGBA")), bid)
         elif bid == "planet":
             c = arr[y0:y1, x0:x1]
             R, B = c[..., 0], c[..., 2]
@@ -63,7 +84,7 @@ def main():
             a[(xx > 370) & (yy > 420)] = 0
             trim_save(Image.fromarray(np.dstack([c, a * 255]).clip(0, 255).astype(np.uint8), "RGBA"), bid)
         else:
-            trim_save(remove(sheet.crop((x0, y0, x1, y1)), session=sess), bid)
+            trim_save(keep_main(remove(sheet.crop((x0, y0, x1, y1)), session=sess)), bid)
 
 
 if __name__ == "__main__":
