@@ -3,9 +3,9 @@ import type { EventSink, LiveUser } from "./events";
 
 const NAMES = [
   "Minh Anh", "Gia Huy", "Bảo Ngọc", "Tuấn Kiệt", "Thu Trang", "Hoàng Long", "Khánh Linh", "Đức Thắng", "Mai Phương", "Quốc Bảo",
-  "Ngọc Hân", "Văn Toàn", "Phương Vy", "Thành Đạt", "Hà My", "Nhật Nam", "Tú Uyên", "Hải Đăng", "Yến Nhi", "Trọng Nhân",
-  "Lan Chi", "Minh Khôi", "Thảo Vy", "Đăng Khoa", "Bích Ngân", "Anh Thư", "Công Phượng", "Kim Ngân", "Trung Hiếu", "Diệu Linh",
-  "Phúc Lâm", "Thu Hà", "Việt Hoàng", "Như Quỳnh", "Tấn Phát", "Hồng Nhung", "Gia Bảo", "Quỳnh Anh", "Đình Trọng", "Mỹ Duyên",
+  "Ngọc Hân", "Thiên Ân", "Phương Vy", "Thành Đạt", "Hà My", "Nhật Nam", "Tú Uyên", "Hải Đăng", "Yến Nhi", "Trọng Nhân",
+  "Lan Chi", "Minh Khôi", "Thảo Vy", "Đăng Khoa", "Bích Ngân", "Anh Thư", "Minh Tâm", "Kim Ngân", "Trung Hiếu", "Diệu Linh",
+  "Phúc Lâm", "Thu Hà", "Việt Hoàng", "Như Quỳnh", "Tấn Phát", "Hồng Nhung", "Gia Bảo", "Quỳnh Anh", "Ngọc Lan", "Mỹ Duyên",
 ];
 const CHATS = ["bắn!!!", "bắn nó điii", "🚀🚀🚀", "cứu trái đất", "lên anh em", "sắp chạm đất rồi", "fire", "thả tim đi mọi người", "UFO yếu quá", "haha", "hạ nó!", "cố lên"];
 /** quà rẻ được tặng nhiều hơn hẳn quà đắt (trọng số ~ 1/giá^0.75) */

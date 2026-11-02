@@ -32,7 +32,7 @@ Hình ảnh đĩa bay, bong bóng ảnh, tia hút và tên lửa/pháo hoa đư�
 
 Quà không có trong danh sách vẫn dùng được, vũ khí được chọn theo giá. Khi live, bridge gửi giá thật của từng món nên sát thương luôn theo đúng số xu. Danh mục nằm ở `src/game/gifts.ts` (thêm quà = thêm 1 dòng).
 
-**Quỹ phòng thủ & ĐẠN VÀNG**: mọi xu tặng trong trận (kể cả rương xu) dồn vào thanh *QUỸ PHÒNG THỦ*. Đầy mốc (100 xu, mốc sau ×1,6) → **ĐẠN VÀNG ×2** trong 12 giây: tim và bình luận của **cả phòng** gây gấp đôi sát thương (cộng dồn tối đa 30 giây). Người tặng giúp cả phòng mạnh lên, ai cũng có lý do ở lại thả tim.
+**Năng lượng phòng thủ & ĐẠN VÀNG**: **mọi** tương tác trong trận đều nạp thanh *NĂNG LƯỢNG PHÒNG THỦ* — tim (0,5/tim), bình luận (3), follow & chia sẻ (15), quà (1 xu = 1), rương. Màn hình chỉ hiện **%**, không hiện số xu. Đầy mốc (100, mốc sau ×1,6) → **ĐẠN VÀNG ×2** trong 12 giây: tim và bình luận của **cả phòng** gây gấp đôi sát thương (cộng dồn tối đa 30 giây). Cả phòng thả tim, bình luận vẫn tự làm đầy được — không cần ai tặng quà.
 
 Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc thua → nghỉ 6,5 s**.
 
@@ -155,7 +155,7 @@ Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phò
 | Phím | Tác dụng |
 |---|---|
 | L / C | thử tim ×10 / bình luận |
-| G / E | mở bảng quà / thả rương xu 199 xu |
+| G / E | mở bảng quà / thả rương 199 xu (chỉ khi không nối live thật) |
 | 1 … 8 | hoa hồng ×5 · tim ngón tay · nước hoa · pháo giấy · kính râm · súng bắn tiền · thiên hà · vũ trụ |
 | F / S / J | thử follow / chia sẻ / thêm người xem |
 | D, `[` `]` | bật/tắt người xem giả, đổi độ đông |
@@ -164,7 +164,7 @@ Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phò
 
 ### Tham số URL
 
-`?demo=1&crowd=0..3` người xem giả · `time=75` thời gian hạ (giây) · `hp=260` máu cơ bản · `hpv=30` máu thêm mỗi người xem · `like=1` `chat=4` `gift=12` sát thương (gift = mỗi xu) · `fund=100` mốc quỹ đầu tiên · `boss=0.15` xác suất vòng thường gặp trùm ngẫu nhiên · `mute=1` · `ws=ws://host:port/ws` địa chỉ bridge khác.
+`?demo=1&crowd=0..3` người xem giả · `time=75` thời gian hạ (giây) · `hp=260` máu cơ bản · `hpv=30` máu thêm mỗi người xem · `like=1` `chat=4` `gift=12` sát thương (gift = mỗi xu) · `fund=100` mốc quỹ đầu tiên · `boss=0.15` xác suất vòng thường gặp trùm ngẫu nhiên · `mute=1` · `ws=ws://host:port/ws` địa chỉ bridge khác · `bubbles=0` không hiện chữ bình luận · `ban=tu1,tu2` thêm từ cấm · `keys=1` mở lại phím thử khi đang nối bridge (chỉ dùng lúc chưa lên live).
 
 ### Biến môi trường của bridge
 
@@ -187,6 +187,15 @@ curl -X POST localhost:8787/emit -d '{"type":"envelope","user":{"id":"an","name"
 ```
 
 Dạng sự kiện: xem `src/live/events.ts` (`join`, `like`, `chat`, `gift`, `envelope`, `follow`, `share`).
+
+## An toàn với chính sách TikTok LIVE
+
+Game đã được chỉnh để giảm rủi ro bị hạn chế / tắt kiếm tiền:
+
+- **Không có tương tác giả trên live thật.** Khi đang nối bridge TikTok (không có `?demo=1`), mọi phím tạo tương tác giả (L C E G F S J, quà 1–8) và ép kết quả (K N D) bị **khoá**; không bật được người xem giả. Chế độ demo luôn có nhãn đỏ *CHẾ ĐỘ THỬ · người xem & quà đều là giả lập* ở đầu màn hình — **không phát trang demo lên live**.
+- **Lọc chữ người xem** (`src/live/filter.ts`): bình luận chửi tục (có dấu, không dấu, viết tắt, chèn dấu chấm), miệt thị vùng miền, số điện thoại, link, mời Zalo/Telegram/inbox → không hiện chữ (vẫn tính là bắn). Tên vi phạm hiện thành *Người xem #xxxx*. Thêm từ cấm riêng bằng `?ban=…`, tắt hẳn chữ bình luận bằng `?bubbles=0`.
+- **Không hiện mục tiêu xu.** Thanh năng lượng chỉ hiện %, ai tương tác cũng nạp được; thông báo quà chỉ ghi tên quà & vũ khí, không ghi số xu.
+- **Vẫn cần người dẫn**: bật camera hoặc micro và dẫn trực tiếp — live chỉ có màn hình game chạy một mình dễ bị coi là nội dung kém chất lượng.
 
 ## Lưu ý về kết nối TikTok
 

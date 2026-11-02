@@ -74,7 +74,7 @@ export const BOSSES: Record<BossId, BossDef> = {
   },
   spider: {
     id: "spider", name: "Nhện Vũ Trụ", kind: "random", hpMul: 2, timeMul: 1.1, stars: 3, color: "#7dff4a", ability: "web",
-    power: "Giăng lưới tơ: tim (laser) dính lưới chỉ gây 30% — bình luận & quà mới xé được lưới!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.8, hitRx: 280, hitRy: 70, hitCy: 0, bellyY: 70,
+    power: "Giăng lưới tơ: tim (laser) dính lưới chỉ gây 30% — cả phòng bình luận để xé lưới!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.8, hitRx: 280, hitRy: 70, hitCy: 0, bellyY: 70,
   },
   devourer: {
     id: "devourer", name: "Kẻ Nuốt Hành Tinh", kind: "random", hpMul: 2.4, timeMul: 1.2, stars: 4, color: "#ff9a3d", ability: "devour",

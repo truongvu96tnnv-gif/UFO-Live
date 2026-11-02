@@ -5,6 +5,7 @@ import { GIFTS } from "./game/gifts";
 import { Game, type Phase } from "./game/game";
 import { H, W } from "./game/stage";
 import { DemoCrowd } from "./live/demo";
+import { addBannedWords } from "./live/filter";
 import type { LiveEvent, LiveUser } from "./live/events";
 import { connectBridge } from "./live/socket";
 import { mountDemoPanel } from "./ui/panel";
@@ -47,7 +48,13 @@ if (demoOn) {
   demo.level = Math.min(3, Math.max(0, +(q.get("crowd") ?? 1) || 0));
   demo.start();
 }
-if (q.get("ws") !== "0" && !demoOn) {
+// Đang nối TikTok thật → KHOÁ mọi thứ tạo tương tác giả: không bật được người xem giả, phím tắt không bơm tim/quà/rương,
+// không ép thắng/thua. (?keys=1 mở lại để thử bridge khi chưa lên live.)
+const liveMode = q.get("ws") !== "0" && !demoOn;
+const fakeOk = !liveMode || q.get("keys") === "1";
+game.showChat = q.get("bubbles") !== "0";
+addBannedWords(q.get("ban"));
+if (liveMode) {
   const url = q.get("ws") ?? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
   connectBridge(url, sink);
 }
@@ -57,13 +64,16 @@ const me: LiveUser = { id: "host", name: "Chủ phòng", avatar: "demo:140" };
 const help = document.getElementById("help")!;
 help.innerHTML = [
   "<b>BẢO VỆ TRÁI ĐẤT</b> — phím tắt",
-  "L: tim ×10 · C: bình luận · G: bảng quà · E: rương xu 199 xu",
+  ...(fakeOk ? [] : ["<b>ĐANG NỐI LIVE THẬT</b>: các phím tạo tương tác giả (L C E G F S J 1–8) và ép kết quả (K N D) đã bị khoá"]),
+  "L: tim ×10 · C: bình luận · G: bảng quà · E: rương 199 xu",
   "Quà: 1 hoa hồng ×5 · 2 tim ngón tay · 3 nước hoa · 4 pháo giấy · 5 kính râm · 6 súng bắn tiền · 7 thiên hà · 8 vũ trụ",
   "F: follow · S: chia sẻ · J: thêm người xem giả",
   "D: bật/tắt người xem giả · [ ]: độ đông demo",
   "R: chơi lại từ đầu (xoá tỉ số & chuỗi) · B: chọn trùm cho vòng sau (bấm tiếp để đổi) · N: qua pha tiếp · K: cho thua ngay (xem cảnh hạ đất)",
   "M: tắt/bật toàn bộ âm thanh · U: tắt/bật nhạc nền · H: ẩn/hiện bảng này",
 ].join("\n");
+/** phím bơm tương tác giả / ép kết quả — bị khoá khi đang nối TikTok thật */
+const FAKE_KEYS = new Set(["l", "c", "e", "g", "f", "s", "j", "k", "n", "d", "[", "]"]);
 const GIFT_KEYS: Record<string, [string, number]> = {
   "1": ["rose", 5],
   "2": ["fingerheart", 1],
@@ -79,6 +89,7 @@ addEventListener("keydown", (e) => {
   game.sfx.unlock();
   const k = e.key.toLowerCase();
   if (k === "h") help.style.display = help.style.display === "block" ? "none" : "block";
+  else if (!fakeOk && (FAKE_KEYS.has(k) || GIFT_KEYS[k])) return; // live thật: phím tạo tương tác giả bị khoá
   else if (k === "l") sink({ type: "like", user: me, count: 10 });
   else if (k === "c") sink({ type: "chat", user: me, text: "bắn!!!" });
   else if (GIFT_KEYS[k]) {

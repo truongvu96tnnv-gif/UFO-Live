@@ -1,3 +1,4 @@
+import { cleanChat, cleanName } from "../live/filter";
 import type { LiveEvent, LiveUser } from "../live/events";
 import { Avatars } from "./avatars";
 import type { Balance } from "./balance";
@@ -33,7 +34,7 @@ import { CX, GROUND_Y, H, PEOPLE_Y0, PEOPLE_Y1, SAFE, UFO_LAND_Y, UFO_START_Y, W
  *  intro  — còi báo động, UFO xâm lược lao vào từ góc trên, thanh máu nạp đầy.
  *  battle — UFO hạ dần xuống thành phố. Người xem bắn hạ nó:
  *             ❤️ tim = laser · 💬 bình luận = tên lửa · 🎁 quà = vũ khí riêng theo từng món (xem gifts.ts)
- *             📦 rương xu = thùng tiếp tế rơi xuống, cả phòng được ĐẠN VÀNG · xu góp vào QUỸ PHÒNG THỦ → ĐẠN VÀNG ×2
+ *             📦 rương = thùng tiếp tế rơi xuống, cả phòng được ĐẠN VÀNG · mọi tương tác nạp NĂNG LƯỢNG PHÒNG THỦ → ĐẠN VÀNG ×2
  *             ➕ follow / ↗ chia sẻ = đẩy UFO lùi lên.
  *           Mỗi người tương tác có 1 bong bóng mang ảnh đại diện lơ lửng trên mái nhà — đạn bắn ra từ chính bong bóng đó.
  *  win    — hết máu: slow-motion, nổ dây chuyền, nổ lớn, pháo hoa; vinh danh người ra đòn kết liễu + top xạ thủ.
@@ -53,6 +54,8 @@ const MAX_PEOPLE = 30;
 const BUBBLE_R = 47;
 const BOSS_INTRO_T = 6;
 const SAVE_KEY = "ufo-live-score";
+/** năng lượng phòng thủ mỗi tương tác nạp (quà: 1 xu = 1); tương tác miễn phí cũng đủ làm đầy */
+const ENERGY = { like: 0.5, chat: 3, follow: 15, share: 15 };
 const FIREWORK = ["#ffd55a", "#ff5a6e", "#5ad1ff", "#9dff7a", "#ffffff", "#ff9a3d", "#d58bff"];
 const TIPS = [
   "❤️ THẢ TIM = BẮN LASER",
@@ -303,7 +306,7 @@ export class Game {
   private goldUntil = 0;
   /** đang bắn vũ khí từ quà (đạn không được ĐẠN VÀNG nhân đôi) */
   private giftCtx = false;
-  /** quỹ phòng thủ: xu cả phòng góp trong vòng */
+  /** năng lượng phòng thủ: mọi tương tác của cả phòng góp trong vòng */
   fund = 0;
   fundGoal = 100;
   private alarmAt = 0;
@@ -334,6 +337,8 @@ export class Game {
 
   status = "";
   demo = false;
+  /** hiện chữ bình luận trên bong bóng (?bubbles=0 để tắt hẳn) */
+  showChat = true;
 
   constructor(private bal: Balance) {
     const bg = makeBackground();
@@ -651,7 +656,8 @@ export class Game {
       this.status = e.state === "connected" || e.state === "idle" ? "" : `${e.state}${e.detail ? ": " + e.detail : ""}`;
       return;
     }
-    const user = e.user;
+    // mọi chữ của người xem đi qua bộ lọc trước khi lên màn hình (tên tục / số điện thoại / link → "Người xem #xxxx")
+    const user: LiveUser = { ...e.user, name: cleanName(e.user.name, e.user.id) };
     this.active.set(user.id, this.time);
     const person = this.ensurePerson(user);
     person.seen = this.time;
@@ -665,10 +671,12 @@ export class Game {
         const dmg = Math.max(1, e.count) * this.bal.likeDmg;
         if (fighting) this.fire("laser", user, dmg);
         else this.sparks(...this.personPos(person), 3, 160);
+        this.addFund(user, Math.max(1, e.count) * ENERGY.like);
         break;
       }
       case "chat": {
-        const text = e.text.trim();
+        // bình luận vi phạm: vẫn tính là bắn (người xem có tương tác) nhưng không hiện chữ
+        const text = this.showChat ? cleanChat(e.text) : "";
         if (text) {
           person.say = [...text].slice(0, 22).join("") + (text.length > 22 ? "…" : "");
           person.sayT = this.time;
@@ -677,6 +685,7 @@ export class Game {
         if (this.time - cd < this.bal.chatCooldown) break;
         this.chatCd.set(user.id, this.time);
         if (fighting) this.fire("rocket", user, this.bal.chatDmg);
+        this.addFund(user, ENERGY.chat);
         break;
       }
       case "gift":
@@ -687,9 +696,11 @@ export class Game {
         break;
       case "follow":
         this.pushBack(user, this.bal.followPush, "dựng lá chắn");
+        this.addFund(user, ENERGY.follow);
         break;
       case "share":
         this.pushBack(user, this.bal.sharePush, "gọi viện binh");
+        this.addFund(user, ENERGY.share);
         break;
     }
   }
@@ -715,7 +726,7 @@ export class Game {
       // ngoài trận: quà thành pháo hoa ăn mừng
       const k = g.weapon === "orbital" ? 12 : g.weapon === "cannon" ? 8 : total >= 100 ? 4 : total >= 10 ? 2 : 1;
       for (let i = 0; i < k; i++) this.firework(rand(160, 920), rand(520, 950), pick(FIREWORK));
-      if (total >= 10) this.toast(`Cảm ơn ${user.name}!`, `${label} · ${fmt(total)} xu`, "#ffd55a", user, 1);
+      if (total >= 10) this.toast(`Cảm ơn ${user.name}!`, label, "#ffd55a", user, 1);
       return;
     }
 
@@ -777,22 +788,25 @@ export class Game {
     if (total >= 10) {
       const prio = g.weapon === "orbital" ? 4 : g.weapon === "cannon" ? 3 : total >= 100 ? 2 : 1;
       const color = g.weapon === "orbital" ? "#9fd8ff" : g.weapon === "cannon" ? "#ff5a6e" : "#ffd55a";
-      this.toast(`${user.name}: ${label}`, `${WEAPON_LABEL[g.weapon]} · ${fmt(total)} xu`, color, user, prio);
+      this.toast(`${user.name}: ${label}`, WEAPON_LABEL[g.weapon], color, user, prio);
     }
     this.addFund(user, total);
   }
 
-  /** Xu góp vào quỹ phòng thủ; đủ mốc → ĐẠN VÀNG ×2 cho cả phòng, mốc sau cao hơn */
-  private addFund(user: LiveUser, coins: number) {
-    if (this.phase !== "battle") return;
-    this.fund += coins;
+  /**
+   * Năng lượng phòng thủ: MỌI tương tác đều nạp (tim, bình luận, follow, chia sẻ, quà) → đầy thì ĐẠN VÀNG ×2 cho cả phòng,
+   * mốc sau cao hơn. Màn hình chỉ hiện %, không hiện số xu (tránh biến thành bảng "mục tiêu xu" kêu gọi tặng quà).
+   */
+  private addFund(user: LiveUser, energy: number) {
+    if (this.phase !== "battle" || energy <= 0) return;
+    this.fund += energy;
     let filled = 0;
     while (this.fund >= this.fundGoal) {
       this.fund -= this.fundGoal;
       this.fundGoal = Math.round((this.fundGoal * 1.6) / 10) * 10;
       filled++;
     }
-    if (filled) this.activateGold(this.bal.goldTime * filled, `Quỹ đầy nhờ ${user.name} · tim & chat ×2`, user);
+    if (filled) this.activateGold(this.bal.goldTime * filled, `Năng lượng đầy nhờ ${user.name} · tim & chat ×2`, user);
   }
 
   private activateGold(sec: number, sub: string, user?: LiveUser) {
@@ -809,7 +823,7 @@ export class Game {
     const cx = rand(240, 840);
     this.crates.push({ user, coins, x: cx, t0: this.time, openT: -1 });
     this.sfx.crateDrop(cx);
-    this.toast(`📦 ${user.name} thả Rương xu!`, `${fmt(coins)} xu · đang rơi xuống thành phố`, "#ffd55a", user, 2);
+    this.toast(`📦 ${user.name} thả Rương!`, "Thùng tiếp tế đang rơi xuống thành phố", "#ffd55a", user, 2);
     this.addFund(user, coins);
   }
 
@@ -1710,7 +1724,7 @@ export class Game {
           this.webHp = this.webMax;
           this.webT0 = now;
           this.sfx.webUp();
-          this.toast("🕸 NHỆN GIĂNG LƯỚI TƠ!", "Tim chỉ 30% · chat & quà để xé lưới", "#7dff4a", undefined, 2);
+          this.toast("🕸 NHỆN GIĂNG LƯỚI TƠ!", "Tim chỉ 30% · bình luận để xé lưới", "#7dff4a", undefined, 2);
         }
         break;
       case "shield":
@@ -3276,7 +3290,7 @@ export class Game {
         ctx.fillRect(x - 50, y - 44, 100, 14);
       }
       ctx.drawImage(this.avatars.get(c.user), x - 20, y - 26, 40, 40);
-      text(ctx, `${fmt(c.coins)} xu`, x, y + 48, 22, "#ffd55a", "center", 900);
+      text(ctx, "TIẾP TẾ", x, y + 48, 22, "#ffd55a", "center", 900);
       ctx.restore();
     }
   }
@@ -3431,7 +3445,7 @@ export class Game {
       }
     }
     if (this.status) text(ctx, `● ${this.status}`, 24, H - 24, 18, "#ff8a8a", "left", 700);
-    else if (this.demo) text(ctx, "DEMO", 24, H - 24, 18, "rgba(255,255,255,0.4)", "left", 700);
+    if (this.demo) this.drawDemoBadge(ctx);
   }
 
   /** Thước đo độ cao bên trái: UFO tụt dần về vạch đỏ mặt đất */
@@ -3461,7 +3475,26 @@ export class Game {
     text(ctx, "🌍", x + 9, y1 + 26, 26, "#fff", "center", 400);
   }
 
-  /** Quỹ phòng thủ (xu cả phòng góp) → ĐẠN VÀNG ×2; khi đang bật thì hiện thời gian còn lại */
+  /**
+   * Chế độ thử: dán nhãn to & rõ để không ai nhầm người xem / quà giả lập là thật
+   * (lỡ phát trang demo lên live mà không có nhãn = tương tác giả, vi phạm chính sách live).
+   */
+  private drawDemoBadge(ctx: CanvasRenderingContext2D) {
+    const msg = "CHẾ ĐỘ THỬ · người xem & quà đều là giả lập";
+    ctx.font = font(800, 26);
+    const w = ctx.measureText(msg).width + 56;
+    const y = 112;
+    ctx.fillStyle = "rgba(120, 10, 20, 0.85)";
+    ctx.strokeStyle = "#ff6a7a";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(CX - w / 2, y - 24, w, 48, 24);
+    ctx.fill();
+    ctx.stroke();
+    text(ctx, msg, CX, y + 1, 26, "#fff", "center", 800);
+  }
+
+  /** Năng lượng phòng thủ (mọi tương tác góp) → ĐẠN VÀNG ×2; khi đang bật thì hiện thời gian còn lại */
   private drawFund(ctx: CanvasRenderingContext2D) {
     const w = 620;
     const h = 30;
@@ -3486,7 +3519,7 @@ export class Game {
     }
     const label = gold
       ? `⚡ ĐẠN VÀNG ×2 · còn ${Math.ceil(this.goldUntil - this.time)}s`
-      : `🪙 QUỸ PHÒNG THỦ ${fmt(this.fund)} / ${fmt(this.fundGoal)} xu → ĐẠN VÀNG ×2`;
+      : `⚡ NĂNG LƯỢNG PHÒNG THỦ ${Math.floor(clamp(this.fund / this.fundGoal, 0, 0.99) * 100)}% → ĐẠN VÀNG ×2`;
     text(ctx, label, CX, y + h / 2 + 1, 18, "#fff", "center", 800);
   }
 
