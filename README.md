@@ -190,7 +190,7 @@ Dạng sự kiện: xem `src/live/events.ts` (`join`, `like`, `chat`, `gift`, `e
 
 ### Live bằng điện thoại (chia sẻ màn hình)
 
-Khi tài khoản chưa dùng được LIVE Studio: chạy bridge trên máy tính với `HOST=0.0.0.0`, điện thoại cùng Wi-Fi mở `http://<IP-máy-tính>:8787/`, rồi live ở chế độ *Mobile gaming* (chia sẻ màn hình). Chạm lần đầu → game vào toàn màn hình (Android). Trên iPhone dùng *Chia sẻ → Thêm vào MH chính* để mở như app không thanh địa chỉ. Chỉ bật `HOST=0.0.0.0` ở Wi-Fi nhà.
+Khi tài khoản chưa dùng được LIVE Studio: chạy bridge trên máy tính với `HOST=0.0.0.0`, điện thoại cùng Wi-Fi mở `http://<IP-máy-tính>:8787/`, rồi live ở chế độ *Mobile gaming* (chia sẻ màn hình). Chạm lần đầu → game vào toàn màn hình (Android); lỡ thoát ra thì bấm nút **⛶ Toàn màn hình** góc trên bên phải. Trên iPhone dùng *Chia sẻ → Thêm vào MH chính* để mở như app không thanh địa chỉ. Chỉ bật `HOST=0.0.0.0` ở Wi-Fi nhà.
 
 ## An toàn với chính sách TikTok LIVE
 

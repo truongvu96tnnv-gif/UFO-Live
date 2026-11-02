@@ -128,14 +128,46 @@ addEventListener("keydown", (e) => {
   } else if (k === "[") demo.level = Math.max(0, demo.level - 1);
   else if (k === "]") demo.level = Math.min(3, demo.level + 1);
 });
-addEventListener("pointerdown", (e) => {
-  game.sfx.unlock();
-  // điện thoại (Android): chạm lần đầu → toàn màn hình, ẩn thanh địa chỉ & thanh điều hướng. iPhone không hỗ trợ —
-  // dùng "Thêm vào màn hình chính". Không áp dụng cho chuột (OBS Interact / máy tính).
-  if (e.pointerType === "touch" && q.get("fs") !== "0" && !document.fullscreenElement && document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen({ navigationUI: "hide" }).then(() => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.("portrait").catch(() => {}), () => {});
-  }
-});
+addEventListener("pointerdown", () => game.sfx.unlock());
+// điện thoại (Android): chạm lần đầu → toàn màn hình, ẩn thanh địa chỉ & thanh điều hướng.
+// Phải gọi ở lúc NHẤC tay (pointerup/touchend): trình duyệt chỉ coi đó là "thao tác người dùng" với cảm ứng —
+// gọi ở pointerdown thì Chrome âm thầm từ chối. iPhone không hỗ trợ → dùng "Thêm vào màn hình chính".
+// Không áp dụng cho chuột (OBS Interact / máy tính).
+const goFullscreen = (e: PointerEvent) => {
+  if (e.pointerType === "mouse" || q.get("fs") === "0" || document.fullscreenElement) return;
+  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
+  const lock = () => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.("portrait").catch(() => {});
+  if (el.requestFullscreen) el.requestFullscreen({ navigationUI: "hide" }).then(lock, () => {});
+  else el.webkitRequestFullscreen?.();
+};
+addEventListener("pointerup", goFullscreen);
+
+// Nút "⛶ Toàn màn hình" cho điện thoại: hiện khi chưa toàn màn hình, bấm là vào; tự ẩn khi đã toàn màn hình.
+// iPhone (Safari không cho trang web toàn màn hình): bấm nút → hướng dẫn "Thêm vào màn hình chính".
+const touchDevice = matchMedia("(pointer: coarse)").matches;
+const standalone = matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+if (touchDevice && !standalone && q.get("fs") !== "0") {
+  const canFs = !!(document.fullscreenEnabled || (document.documentElement as HTMLElement & { webkitRequestFullscreen?: unknown }).webkitRequestFullscreen);
+  const fsBtn = document.createElement("button");
+  fsBtn.type = "button";
+  fsBtn.id = "ufo-fs";
+  fsBtn.textContent = "⛶ Toàn màn hình";
+  fsBtn.style.cssText = "position:fixed;right:calc(10px + env(safe-area-inset-right,0px));top:calc(10px + env(safe-area-inset-top,0px));z-index:8;padding:8px 12px;border-radius:999px;border:1px solid #5ad1ff;background:rgba(8,12,28,.9);color:#5ad1ff;font:600 15px 'Chakra Petch',system-ui,sans-serif;cursor:pointer";
+  const tip = document.createElement("div");
+  tip.style.cssText = "position:fixed;left:16px;right:16px;top:calc(60px + env(safe-area-inset-top,0px));z-index:8;padding:12px 14px;border-radius:12px;border:1px solid #5ad1ff;background:rgba(8,12,28,.95);color:#e8eeff;font:500 15px/1.5 'Chakra Petch',system-ui,sans-serif;display:none";
+  tip.innerHTML = "iPhone không cho trang web tự toàn màn hình.<br>Bấm nút <b>Chia sẻ</b> (ô vuông có mũi tên) → <b>Thêm vào MH chính</b>, rồi mở game từ biểu tượng UFO mới — game sẽ chạy toàn màn hình, không thanh địa chỉ.";
+  fsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (canFs) goFullscreen(new PointerEvent("pointerup", { pointerType: "touch" }));
+    else tip.style.display = tip.style.display === "none" ? "block" : "none";
+  });
+  // ẩn khi đã toàn màn hình, hoặc khi dòng "Chạm để bật âm thanh" còn đó (chạm vào nó cũng tự vào toàn màn hình)
+  const sync = () => (fsBtn.style.display = document.fullscreenElement || document.getElementById("ufo-sound-hint") ? "none" : "block");
+  document.addEventListener("fullscreenchange", sync);
+  setInterval(sync, 500);
+  document.body.append(fsBtn, tip);
+  sync();
+}
 // chế độ demo: chạm vào màn hình = thả tim, thanh nút + bảng quà để thử trên điện thoại
 const you: LiveUser = { id: "you", name: "Bạn", avatar: "demo:200" };
 // nút "Gọi trùm": đánh ngay trùm kế tiếp trong danh sách để xem model & kỹ năng
@@ -144,6 +176,7 @@ let bossI = -1;
 // lời nhắc bật âm thanh (trình duyệt chặn tiếng tới khi người xem chạm)
 const hint = document.createElement("button");
 hint.type = "button";
+hint.id = "ufo-sound-hint";
 hint.textContent = "🔊 Chạm để bật âm thanh";
 hint.style.cssText = "position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:7;padding:10px 16px;border-radius:999px;border:1px solid #ffd55a;background:rgba(8,12,28,.9);color:#ffd55a;font:600 15px 'Chakra Petch',system-ui,sans-serif;cursor:pointer";
 hint.addEventListener("click", () => game.sfx.unlock());
