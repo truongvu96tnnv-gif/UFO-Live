@@ -11,8 +11,12 @@ export interface Balance {
   /** sát thương mỗi bình luận (mỗi người tối đa 1 phát / chatCooldown giây) */
   chatDmg: number;
   chatCooldown: number;
-  /** sát thương mỗi kim cương quà tặng */
+  /** sát thương mỗi xu quà tặng */
   giftDmg: number;
+  /** quỹ phòng thủ: cả phòng góp đủ bấy nhiêu xu → ĐẠN VÀNG ×2 (mốc sau tăng dần) */
+  fundGoal: number;
+  /** đạn vàng kéo dài (giây) */
+  goldTime: number;
   /** follow / chia sẻ đẩy UFO lùi lên bao nhiêu phần quãng đường */
   followPush: number;
   sharePush: number;
@@ -28,6 +32,8 @@ export const DEFAULT_BALANCE: Balance = {
   chatDmg: 4,
   chatCooldown: 1.5,
   giftDmg: 12,
+  fundGoal: 100,
+  goldTime: 12,
   followPush: 0.04,
   sharePush: 0.06,
   bossChance: 0.08,
@@ -46,27 +52,6 @@ export function balanceFromQuery(q: URLSearchParams): Balance {
   b.chatDmg = num("chat") ?? b.chatDmg;
   b.giftDmg = num("gift") ?? b.giftDmg;
   b.bossChance = num("boss") ?? b.bossChance;
+  b.fundGoal = num("fund") ?? b.fundGoal;
   return b;
 }
-
-/** Cấp vũ khí theo tổng kim cương của 1 lượt tặng */
-export type GiftTier = "rocket" | "heavy" | "mega" | "cannon";
-export function giftTier(totalDiamonds: number): GiftTier {
-  if (totalDiamonds >= 1000) return "cannon";
-  if (totalDiamonds >= 100) return "mega";
-  if (totalDiamonds >= 10) return "heavy";
-  return "rocket";
-}
-
-/**
- * Trần sát thương của 1 lượt tặng (tỉ lệ máu tối đa của UFO): quà lớn rất mạnh nhưng không kết thúc trận ngay —
- * giữ hồi hộp cho cả phòng và tránh cảm giác "mua thắng".
- */
-export const TIER_CAP: Record<GiftTier, number> = { rocket: 0.12, heavy: 0.2, mega: 0.35, cannon: 0.6 };
-
-export const TIER_LABEL: Record<GiftTier, string> = {
-  rocket: "Tên lửa",
-  heavy: "Tên lửa hạng nặng",
-  mega: "Siêu tên lửa",
-  cannon: "PHÁO TRÁI ĐẤT",
-};

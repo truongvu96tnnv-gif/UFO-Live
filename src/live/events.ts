@@ -13,8 +13,10 @@ export type LiveEvent =
   | { type: "join"; user: LiveUser }
   | { type: "like"; user: LiveUser; count: number }
   | { type: "chat"; user: LiveUser; text: string }
-  /** count = số quà MỚI trong sự kiện này (bridge đã trừ phần combo gửi trước đó) */
-  | { type: "gift"; user: LiveUser; gift: string; diamonds: number; count: number }
+  /** coins = giá 1 món (xu); count = số món MỚI trong sự kiện này (bridge đã trừ phần combo gửi trước đó) */
+  | { type: "gift"; user: LiveUser; gift: string; coins: number; count: number }
+  /** Rương xu (treasure box) người xem thả vào phòng */
+  | { type: "envelope"; user: LiveUser; coins: number }
   | { type: "follow"; user: LiveUser }
   | { type: "share"; user: LiveUser }
   | { type: "status"; state: "connecting" | "connected" | "disconnected" | "offline" | "error" | "idle"; detail?: string };

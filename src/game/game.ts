@@ -1,6 +1,7 @@
 import type { LiveEvent, LiveUser } from "../live/events";
 import { Avatars } from "./avatars";
-import { giftTier, TIER_CAP, TIER_LABEL, type Balance } from "./balance";
+import type { Balance } from "./balance";
+import { resolveGift, WEAPON_CAP, WEAPON_LABEL } from "./gifts";
 import { approach, clamp, easeInOutCubic, easeOutBack, lerp, pick, rand } from "./math";
 import { Sfx } from "./sfx";
 import {
@@ -24,7 +25,8 @@ import { CX, GROUND_Y, H, PEOPLE_Y0, PEOPLE_Y1, SAFE, UFO_LAND_Y, UFO_SCALE, UFO
  *
  *  intro  — còi báo động, UFO xâm lược lao vào từ góc trên, thanh máu nạp đầy.
  *  battle — UFO hạ dần xuống thành phố. Người xem bắn hạ nó:
- *             ❤️ tim = laser · 💬 bình luận = tên lửa · 🎁 quà = vũ khí hạng nặng (theo số kim cương)
+ *             ❤️ tim = laser · 💬 bình luận = tên lửa · 🎁 quà = vũ khí riêng theo từng món (xem gifts.ts)
+ *             📦 rương xu = thùng tiếp tế rơi xuống, cả phòng được ĐẠN VÀNG · xu góp vào QUỸ PHÒNG THỦ → ĐẠN VÀNG ×2
  *             ➕ follow / ↗ chia sẻ = đẩy UFO lùi lên.
  *           Mỗi người tương tác có 1 bong bóng mang ảnh đại diện lơ lửng trên mái nhà — đạn bắn ra từ chính bong bóng đó.
  *  win    — hết máu: slow-motion, nổ dây chuyền, nổ lớn, pháo hoa; vinh danh người ra đòn kết liễu + top xạ thủ.
@@ -38,6 +40,8 @@ const INTRO_T = 3.6;
 const WIN_T = 10.5;
 const LOSE_T = 9;
 const BREAK_T = 6.5;
+const CRATE_Y = 1110;
+const CONFETTI = ["#ffd55a", "#ff5a6e", "#5ad1ff", "#9dff7a", "#ffffff", "#d58bff"];
 const MAX_PEOPLE = 30;
 const BUBBLE_R = 47;
 const S = UFO_SCALE;
@@ -45,7 +49,8 @@ const FIREWORK = ["#ffd55a", "#ff5a6e", "#5ad1ff", "#9dff7a", "#ffffff", "#ff9a3
 const TIPS = [
   "❤️ THẢ TIM = BẮN LASER",
   "💬 BÌNH LUẬN = PHÓNG TÊN LỬA",
-  "🎁 TẶNG QUÀ = VŨ KHÍ HẠNG NẶNG",
+  "🎁 MỖI MÓN QUÀ = 1 VŨ KHÍ RIÊNG",
+  "🪙 GÓP XU ĐẦY QUỸ = ĐẠN VÀNG ×2",
   "➕ FOLLOW / CHIA SẺ = ĐẨY UFO LÙI",
 ];
 
@@ -62,9 +67,12 @@ interface Person {
   suck: number; // lúc bắt đầu bị hút (-1 = không)
   say: string;
   sayT: number;
+  /** combo quà đang chạy: "🌹 ×12" trên đầu bong bóng */
+  combo: { icon: string; n: number; t: number } | null;
 }
 
-type ShotKind = "laser" | "rocket" | "heavy" | "mega";
+type ShotKind = "laser" | "rocket" | "heavy" | "mega" | "heart" | "bill";
+const isRocket = (k: ShotKind) => k === "rocket" || k === "heavy" || k === "mega";
 interface Shot {
   kind: ShotKind;
   user: LiveUser;
@@ -79,15 +87,44 @@ interface Shot {
   color: string;
   trail: { x: number; y: number; t: number }[];
   done: boolean;
+  /** hiệu ứng khi trúng: cánh hoa hồng / pháo giấy */
+  fx: "" | "rose" | "confetti";
+  /** đạn của cả phòng (tim, bình luận) — được ĐẠN VÀNG nhân đôi; đạn quà đã có trần riêng nên không */
+  boost: boolean;
+  /** ghi tên người tặng dưới tên lửa lớn (phi đội của SIÊU VŨ KHÍ thì không, cho đỡ rối) */
+  label: boolean;
 }
 
-interface Cannon {
+/** Tia năng lượng gây sát thương liên tục: pháo mặt đất / laser đôi kính râm / tia từ quỹ đạo */
+interface Beam {
+  style: "earth" | "twin" | "orbital";
   user: LiveUser;
   x: number;
+  y: number;
   t0: number;
   dur: number;
   dmg: number;
   dealt: number;
+}
+
+/** Rương xu: thùng tiếp tế dù rơi xuống, chạm đất thì mở */
+interface Crate {
+  user: LiveUser;
+  coins: number;
+  x: number;
+  t0: number;
+  openT: number; // -1 = chưa mở
+}
+
+interface Confetto {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rot: number;
+  vr: number;
+  color: string;
+  life: number;
 }
 
 interface Particle {
@@ -202,6 +239,13 @@ export class Game {
   private beam = 0;
   private beamWant = 0;
   private shield = 0;
+  /** ĐẠN VÀNG ×2 tới thời điểm này */
+  private goldUntil = 0;
+  /** đang bắn vũ khí từ quà (đạn không được ĐẠN VÀNG nhân đôi) */
+  private giftCtx = false;
+  /** quỹ phòng thủ: xu cả phòng góp trong vòng */
+  fund = 0;
+  fundGoal = 100;
   private alarmAt = 0;
   private flash = 0;
 
@@ -216,7 +260,9 @@ export class Game {
 
   // hiệu ứng
   private shots: Shot[] = [];
-  private cannons: Cannon[] = [];
+  private beams: Beam[] = [];
+  private crates: Crate[] = [];
+  private confetti: Confetto[] = [];
   private parts: Particle[] = [];
   private streaks: Streak[] = [];
   private blasts: Blast[] = [];
@@ -311,6 +357,9 @@ export class Game {
     this.hpTrail = 0;
     this.progress = 0;
     this.roundDmg.clear();
+    this.fund = 0;
+    this.fundGoal = this.bal.fundGoal;
+    this.goldUntil = 0;
     this.killer = null;
     this.lastHitter = null;
     this.ufoAlive = true;
@@ -325,7 +374,7 @@ export class Game {
 
   private endRound(win: boolean) {
     if (this.phase !== "battle" && this.phase !== "intro") return;
-    for (const c of this.cannons) c.dur = 0;
+    for (const c of this.beams) c.dur = 0;
     if (win) {
       this.earthWins++;
       this.diffMul = clamp(this.diffMul * 1.18, 0.45, 6);
@@ -385,42 +434,157 @@ export class Game {
         if (fighting) this.fire("rocket", user, this.bal.chatDmg);
         break;
       }
-      case "gift": {
-        const total = Math.max(1, e.diamonds) * Math.max(1, e.count);
-        const tier = giftTier(total);
-        const dmg = Math.min(total * this.bal.giftDmg, Math.max(this.bal.giftDmg, this.hpMax * TIER_CAP[tier]));
-        const gift = e.count > 1 ? `${e.gift} ×${e.count}` : e.gift;
-        if (fighting) {
-          if (tier === "rocket") {
-            const n = Math.min(8, Math.max(1, e.count));
-            for (let i = 0; i < n; i++) this.fire("rocket", user, dmg / n, i * 0.09);
-            this.floatText(`${user.name}: ${gift}`, ...this.personPos(person), "#ffd55a", 30);
-          } else if (tier === "heavy") {
-            this.fire("heavy", user, dmg);
-          } else if (tier === "mega") {
-            for (let i = 0; i < 3; i++) this.fire("mega", user, dmg / 3, i * 0.18);
-            this.shake = Math.max(this.shake, 10);
-          } else {
-            const [x] = this.personPos(person);
-            this.cannons.push({ user, x, t0: this.time, dur: 2.6, dmg, dealt: 0 });
-            this.shake = Math.max(this.shake, 18);
-            this.sfx.launch();
-          }
-          if (tier !== "rocket") this.toast(`${user.name} phóng ${TIER_LABEL[tier]}!`, `${gift} · −${fmt(dmg)} máu UFO`, tier === "cannon" ? "#ff5a6e" : "#ffd55a", user, tier === "cannon" ? 3 : 2);
-        } else {
-          // ngoài trận: quà thành pháo hoa ăn mừng
-          const n = tier === "rocket" ? 1 : tier === "heavy" ? 2 : tier === "mega" ? 4 : 8;
-          for (let i = 0; i < n; i++) this.firework(rand(160, 920), rand(520, 950), pick(FIREWORK));
-          if (tier !== "rocket") this.toast(`Cảm ơn ${user.name}!`, gift, "#ffd55a", user, 1);
-        }
+      case "gift":
+        this.onGift(user, person, e.gift, e.coins, e.count, fighting);
         break;
-      }
+      case "envelope":
+        this.dropCrate(user, e.coins);
+        break;
       case "follow":
         this.pushBack(user, this.bal.followPush, "dựng lá chắn");
         break;
       case "share":
         this.pushBack(user, this.bal.sharePush, "gọi viện binh");
         break;
+    }
+  }
+
+  /** ĐẠN VÀNG đang bật: mọi sát thương ×2 */
+  get golden() {
+    return this.time < this.goldUntil;
+  }
+
+  /** Mỗi món quà có vũ khí riêng; sát thương theo tổng xu, có trần theo loại vũ khí */
+  private onGift(user: LiveUser, person: Person, giftName: string, coins: number, count: number, fighting: boolean) {
+    const g = resolveGift(giftName, coins);
+    const n = Math.max(1, Math.round(count));
+    const total = Math.max(1, coins) * n;
+    const c = person.combo;
+    if (c && c.icon === g.icon && this.time - c.t < 4) {
+      c.n += n;
+      c.t = this.time;
+    } else person.combo = { icon: g.icon, n, t: this.time };
+    const label = n > 1 ? `${g.icon} ${g.name} ×${n}` : `${g.icon} ${g.name}`;
+
+    if (!fighting) {
+      // ngoài trận: quà thành pháo hoa ăn mừng
+      const k = g.weapon === "orbital" ? 12 : g.weapon === "cannon" ? 8 : total >= 100 ? 4 : total >= 10 ? 2 : 1;
+      for (let i = 0; i < k; i++) this.firework(rand(160, 920), rand(520, 950), pick(FIREWORK));
+      if (total >= 10) this.toast(`Cảm ơn ${user.name}!`, `${label} · ${fmt(total)} xu`, "#ffd55a", user, 1);
+      return;
+    }
+
+    const dmg = Math.min(total * this.bal.giftDmg, Math.max(this.bal.giftDmg, this.hpMax * WEAPON_CAP[g.weapon]));
+    const [px, py] = this.originFor(user);
+    this.giftCtx = true;
+    switch (g.weapon) {
+      case "rocket":
+      case "rose": {
+        const k = Math.min(8, n);
+        for (let i = 0; i < k; i++) this.fire("rocket", user, dmg / k, i * 0.09, g.weapon === "rose" ? "rose" : "");
+        break;
+      }
+      case "heart": {
+        const k = Math.min(15, n * 3);
+        for (let i = 0; i < k; i++) this.fire("heart", user, dmg / k, i * 0.06);
+        break;
+      }
+      case "heavy":
+        this.fire("heavy", user, dmg);
+        break;
+      case "confetti":
+        this.fire("heavy", user, dmg, 0, "confetti");
+        break;
+      case "mega":
+        for (let i = 0; i < 3; i++) this.fire("mega", user, dmg / 3, i * 0.18);
+        this.shake = Math.max(this.shake, 10);
+        break;
+      case "moneyGun": {
+        const k = 26;
+        for (let i = 0; i < k; i++) this.fire("bill", user, dmg / k, i * 0.06);
+        break;
+      }
+      case "twinLaser":
+        this.beams.push({ style: "twin", user, x: px, y: py, t0: this.time, dur: 1.8, dmg, dealt: 0 });
+        this.sfx.launch();
+        break;
+      case "cannon":
+        this.beams.push({ style: "earth", user, x: px, y: GROUND_Y + 60, t0: this.time, dur: 2.6, dmg, dealt: 0 });
+        this.shake = Math.max(this.shake, 18);
+        this.sfx.launch();
+        break;
+      case "orbital": {
+        // tia từ quỹ đạo gánh 70%, phi đội tên lửa từ khắp thành phố gánh 30%
+        this.beams.push({ style: "orbital", user, x: this.ux, y: -60, t0: this.time + 0.4, dur: 3.2, dmg: dmg * 0.7, dealt: 0 });
+        const squad = this.people.filter((p) => p.suck < 0).slice(0, 12);
+        const k = Math.max(1, squad.length);
+        squad.forEach((p, i) => this.fire("heavy", user, (dmg * 0.3) / k, 0.2 + i * 0.12, "", p.user));
+        if (!squad.length) this.fire("mega", user, dmg * 0.3, 0.2);
+        this.shake = Math.max(this.shake, 26);
+        this.flash = 0.6;
+        this.sfx.boom();
+        break;
+      }
+    }
+    this.giftCtx = false;
+    // quà nhỏ: combo "🌹 ×12" trên bong bóng là đủ; quà từ 10 xu có băng rôn
+    if (total >= 10) {
+      const prio = g.weapon === "orbital" ? 4 : g.weapon === "cannon" ? 3 : total >= 100 ? 2 : 1;
+      const color = g.weapon === "orbital" ? "#9fd8ff" : g.weapon === "cannon" ? "#ff5a6e" : "#ffd55a";
+      this.toast(`${user.name}: ${label}`, `${WEAPON_LABEL[g.weapon]} · ${fmt(total)} xu`, color, user, prio);
+    }
+    this.addFund(user, total);
+  }
+
+  /** Xu góp vào quỹ phòng thủ; đủ mốc → ĐẠN VÀNG ×2 cho cả phòng, mốc sau cao hơn */
+  private addFund(user: LiveUser, coins: number) {
+    if (this.phase !== "battle") return;
+    this.fund += coins;
+    let filled = 0;
+    while (this.fund >= this.fundGoal) {
+      this.fund -= this.fundGoal;
+      this.fundGoal = Math.round((this.fundGoal * 1.6) / 10) * 10;
+      filled++;
+    }
+    if (filled) this.activateGold(this.bal.goldTime * filled, `Quỹ đầy nhờ ${user.name} · tim & chat ×2`, user);
+  }
+
+  private activateGold(sec: number, sub: string, user?: LiveUser) {
+    // cộng dồn nhưng tối đa 30 giây còn lại (quà khủng làm đầy quỹ nhiều lần cũng không kéo dài mãi)
+    this.goldUntil = Math.min(this.time + 30, Math.max(this.goldUntil, this.time) + sec);
+    for (const p of this.people) p.pulse = 1;
+    this.toast("⚡ ĐẠN VÀNG ×2 KÍCH HOẠT!", sub, "#ffd55a", user, 3);
+    this.sfx.win();
+  }
+
+  /** Rương xu: thùng tiếp tế treo dù rơi xuống thành phố */
+  private dropCrate(user: LiveUser, coins: number) {
+    if (this.crates.length > 4) return;
+    this.crates.push({ user, coins, x: rand(240, 840), t0: this.time, openT: -1 });
+    this.toast(`📦 ${user.name} thả Rương xu!`, `${fmt(coins)} xu · đang rơi xuống thành phố`, "#ffd55a", user, 2);
+    this.addFund(user, coins);
+  }
+
+  private crateY(c: Crate) {
+    const u = clamp((this.time - c.t0) / 2.6, 0, 1);
+    return lerp(-160, CRATE_Y, 1 - (1 - u) * (1 - u));
+  }
+
+  private crateX(c: Crate) {
+    return c.x + Math.sin((this.time - c.t0) * 1.8) * 30 * (c.openT < 0 ? 1 : 0);
+  }
+
+  private openCrate(c: Crate) {
+    c.openT = this.time;
+    const x = this.crateX(c);
+    this.sparks(x, CRATE_Y, 50, 700);
+    for (let i = 0; i < 3; i++) this.firework(x + rand(-80, 80), CRATE_Y - rand(80, 220), "#ffd55a", 36);
+    for (let i = 0; i < 60; i++) this.confetti.push({ x, y: CRATE_Y - 20, vx: rand(-420, 420), vy: rand(-900, -300), rot: rand(0, 6), vr: rand(-10, 10), color: "#ffd55a", life: rand(1.6, 2.6) });
+    this.sfx.hit(true);
+    if (this.phase === "battle" && this.ufoAlive) {
+      this.progress = Math.max(0, this.progress - 0.05);
+      this.kick += 50;
+      this.activateGold(this.bal.goldTime, `Rương của ${c.user.name} · tim & chat ×2`, c.user);
     }
   }
 
@@ -463,6 +627,7 @@ export class Game {
       suck: this.phase === "lose" ? this.time : -1,
       say: "",
       sayT: -99,
+      combo: null,
     };
     this.people.push(p);
     this.people.sort((a, b) => a.z - b.z);
@@ -487,13 +652,13 @@ export class Game {
     return [clamp(t.x + t.w / 2, 40, W - 40), Math.max(GROUND_Y - 40, t.top)];
   }
 
-  private fire(kind: ShotKind, user: LiveUser, dmg: number, delay = 0) {
+  private fire(kind: ShotKind, user: LiveUser, dmg: number, delay = 0, fx: Shot["fx"] = "", from?: LiveUser) {
     // quá nhiều đạn trên màn → cộng sát thương thẳng, không vẽ thêm (giữ FPS lúc mưa tim)
     if (this.shots.length > 140 && kind === "laser") {
-      this.damage(user, dmg, this.ux + rand(-120, 120), this.uy, false);
+      this.damage(user, dmg, this.ux + rand(-120, 120), this.uy, false, !this.giftCtx);
       return;
     }
-    const [sx, sy] = this.originFor(user);
+    const [sx, sy] = this.originFor(from ?? user);
     const hue = this.avatars.hue(user);
     this.shots.push({
       kind,
@@ -503,19 +668,23 @@ export class Game {
       ox: rand(-0.7, 0.7) * DISC_RX * S,
       oy: rand(-0.3, 0.55) * DISC_RY * S,
       t0: this.time + delay,
-      dur: kind === "laser" ? 0.12 : kind === "rocket" ? rand(0.85, 1.15) : kind === "heavy" ? 1.3 : 1.45,
+      dur: kind === "laser" ? 0.12 : kind === "bill" ? rand(0.55, 0.75) : kind === "heart" ? rand(0.7, 0.9) : kind === "rocket" ? rand(0.85, 1.15) : kind === "heavy" ? 1.3 : 1.45,
       dmg,
       side: (Math.random() < 0.5 ? -1 : 1) * rand(80, 260),
-      color: kind === "laser" ? `hsl(${hue},100%,66%)` : pick(FIREWORK),
+      color: kind === "laser" ? (this.golden ? "#ffd55a" : `hsl(${hue},100%,66%)`) : fx === "rose" || kind === "heart" ? "#ff5a8a" : kind === "bill" ? "#7dff9a" : pick(FIREWORK),
       trail: [],
       done: false,
+      fx,
+      boost: !this.giftCtx,
+      label: !from,
     });
-    if (kind === "laser") this.sfx.laser();
+    if (kind === "laser" || kind === "heart" || kind === "bill") this.sfx.laser();
     else this.sfx.launch();
   }
 
-  private damage(user: LiveUser, dmg: number, x: number, y: number, big: boolean) {
+  private damage(user: LiveUser, dmg: number, x: number, y: number, big: boolean, boost = false) {
     if (this.phase !== "battle" || this.hp <= 0) return;
+    if (boost && this.golden) dmg *= 2;
     const d = Math.min(this.hp, dmg);
     this.hp -= d;
     const rec = this.roundDmg.get(user.id) ?? { user, dmg: 0 };
@@ -525,7 +694,8 @@ export class Game {
     this.lastHitter = user;
     this.hitFlash = Math.min(1, this.hitFlash + (big ? 0.6 : 0.1));
     this.shake = Math.max(this.shake, big ? 14 : 3);
-    if (dmg >= 1) this.floatText(`−${fmt(dmg)}`, x + rand(-20, 20), y - 20, big ? "#ffd55a" : "#ffffff", big ? 46 : 26);
+    // số nhỏ (từng phát tim) không hiện để UFO đỡ rối; số to & đòn quà luôn hiện
+    if (big || dmg >= 10) this.floatText(`−${fmt(dmg)}`, x + rand(-20, 20), y - 20, big ? "#ffd55a" : "#ffffff", big ? 46 : 26);
     if (this.hp <= 0) {
       this.hp = 0;
       this.killer = user;
@@ -618,7 +788,7 @@ export class Game {
     if (hpk < 0.6 && Math.random() < dt * (hpk < 0.3 ? 30 : 12)) {
       this.smoke.push({ x: this.ux + rand(-150, 150) * S, y: this.uy + rand(-20, 10), vx: rand(-20, 20), vy: rand(-90, -40), life: 0, max: rand(1.2, 2), size: rand(14, 26) });
     }
-    for (const c of this.cannons) {
+    for (const c of this.beams) {
       const u = (this.time - c.t0) / c.dur;
       if (u < 0 || u > 1) continue;
       const want = c.dmg * clamp(u * 1.05, 0, 1);
@@ -718,18 +888,23 @@ export class Game {
         const [x, y] = this.shotTarget(s);
         const big = s.kind === "heavy" || s.kind === "mega";
         if (s.kind === "laser") this.sparks(x, y, 2, 240);
+        else if (s.kind === "heart" || s.kind === "bill") this.sparks(x, y, 4, 320);
         else {
+          if (s.fx === "rose") this.firework(x, y, "#ff5a8a", 24);
+          if (s.fx === "confetti") {
+            for (let i = 0; i < 70; i++) this.confetti.push({ x, y, vx: rand(-600, 600), vy: rand(-700, 100), rot: rand(0, 6), vr: rand(-12, 12), color: pick(CONFETTI), life: rand(1.5, 2.6) });
+          }
           this.blasts.push({ x, y, t: this.time, color: s.color, size: big ? 200 : 90 });
           this.sparks(x, y, big ? 30 : 8, big ? 800 : 420);
           if (big) this.firework(x, y, s.color, 40);
           this.sfx.hit(big);
         }
-        this.damage(s.user, s.dmg, x, y, big);
+        this.damage(s.user, s.dmg, x, y, big, s.boost);
       }
     }
     for (const s of this.shots) while (s.trail.length && this.time - s.trail[0].t > 0.8) s.trail.shift();
     this.shots = this.shots.filter((s) => !s.done || s.trail.length || this.time - s.t0 - s.dur < 0.2);
-    this.cannons = this.cannons.filter((c) => this.time - c.t0 < c.dur + 0.4);
+    this.beams = this.beams.filter((c) => this.time - c.t0 < c.dur + 0.4);
   }
 
   private updateFx(dt: number) {
@@ -768,6 +943,18 @@ export class Game {
       if (Math.random() < dt * 8) this.smoke.push({ x: d.x, y: d.y, vx: 0, vy: -20, life: 0, max: 0.8, size: 8 });
     }
     this.debris = this.debris.filter((d) => d.life > 0 && d.y < H + 50);
+    for (const c of this.crates) if (c.openT < 0 && this.time - c.t0 >= 2.6) this.openCrate(c);
+    this.crates = this.crates.filter((c) => c.openT < 0 || this.time - c.openT < 1.2);
+    for (const f of this.confetti) {
+      f.life -= dt;
+      f.vx *= 1 - dt * 1.8;
+      f.vy = f.vy * (1 - dt * 1.8) + 520 * dt;
+      f.x += f.vx * dt + Math.sin(f.rot) * 30 * dt;
+      f.y += f.vy * dt;
+      f.rot += f.vr * dt;
+    }
+    this.confetti = this.confetti.filter((f) => f.life > 0 && f.y < H + 20);
+    if (this.confetti.length > 600) this.confetti.splice(0, this.confetti.length - 600);
     this.floaters = this.floaters.filter((f) => this.time - f.t < 1.3);
     // băng rôn: hiện lần lượt, cái ưu tiên cao chen lên đầu hàng
     const cur = this.banners[0];
@@ -831,8 +1018,14 @@ export class Game {
     this.drawShield(ctx);
     this.drawSmoke(ctx);
     this.drawShots(ctx, false);
+    const orbital = this.beams.some((b) => b.style === "orbital" && this.time >= b.t0 - 0.4 && this.time < b.t0 + b.dur);
+    if (orbital) {
+      ctx.fillStyle = "rgba(0,4,24,0.4)";
+      ctx.fillRect(-40, -40, W + 80, H + 80);
+    }
     if (this.ufoAlive) this.drawSaucer(ctx);
-    this.drawCannons(ctx);
+    this.drawBeams(ctx);
+    this.drawCrates(ctx);
     this.drawShots(ctx, true);
     this.drawFx(ctx);
     ctx.restore();
@@ -917,6 +1110,15 @@ export class Game {
     ctx.restore();
     if (p.suck < 0) {
       text(ctx, short(p.user.name, 12), x, y + r + 16, 17, "rgba(255,255,255,0.92)", "center", 700);
+      const c = p.combo;
+      if (c && this.time - c.t < 3) {
+        const age = this.time - c.t;
+        const pop = age < 0.15 ? 1 + 0.5 * (1 - age / 0.15) : 1;
+        ctx.globalAlpha = clamp((3 - age) / 0.5, 0, 1);
+        const busy = p.say && this.time - p.sayT < 2.6;
+        text(ctx, `${c.icon} ×${c.n}`, clamp(x + r * 0.9, 60, W - 60), y - r - (busy ? 70 : 18), 28 * pop, "#ffd55a", "center", 900);
+        ctx.globalAlpha = 1;
+      }
       const sayAge = this.time - p.sayT;
       if (p.say && sayAge < 2.6) {
         ctx.globalAlpha = clamp(Math.min(sayAge * 6, (2.6 - sayAge) * 3), 0, 1);
@@ -1089,6 +1291,7 @@ export class Game {
     if (!top) {
       // khói tên lửa
       for (const s of this.shots) {
+        if (!isRocket(s.kind)) continue;
         for (const p of s.trail) {
           const age = this.time - p.t;
           const k = 1 - age / 0.8;
@@ -1131,7 +1334,7 @@ export class Game {
     ctx.globalAlpha = 1;
     // lửa đuôi tên lửa
     for (const s of this.shots) {
-      if (s.kind === "laser" || s.done || this.time < s.t0) continue;
+      if (!isRocket(s.kind) || s.done || this.time < s.t0) continue;
       const { x, y, ang, sc } = this.rocketPose(s);
       const fl = 26 + Math.random() * 12;
       ctx.globalAlpha = 0.9;
@@ -1152,10 +1355,46 @@ export class Game {
       ctx.fill();
       ctx.restore();
     }
+    // vệt sáng đạn trái tim
+    for (const s of this.shots) {
+      if (s.kind !== "heart") continue;
+      for (const p of s.trail) {
+        const k = 1 - (this.time - p.t) / 0.8;
+        if (k <= 0) continue;
+        ctx.globalAlpha = 0.5 * k;
+        ctx.drawImage(this.glows[1], p.x - 10, p.y - 10, 20, 20);
+      }
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
+    // đạn trái tim & tờ tiền
+    for (const s of this.shots) {
+      if ((s.kind !== "heart" && s.kind !== "bill") || s.done || this.time < s.t0) continue;
+      const { x, y, ang } = this.rocketPose(s);
+      ctx.save();
+      ctx.translate(x, y);
+      if (s.kind === "heart") {
+        const k = 1 + 0.15 * Math.sin(this.time * 20 + s.side);
+        ctx.scale(k, k);
+        drawHeart(ctx, 0, 0, 16, "#ff4f86");
+      } else {
+        ctx.rotate(ang + Math.sin(this.time * 14 + s.side) * 0.5);
+        ctx.fillStyle = "#2fbf5f";
+        ctx.fillRect(-20, -10, 40, 20);
+        ctx.strokeStyle = "#c9ffd6";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-17, -7, 34, 14);
+        ctx.fillStyle = "#eafff0";
+        ctx.font = "900 13px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("$", 0, 1);
+      }
+      ctx.restore();
+    }
     // thân tên lửa (+ người tặng ngồi trong ô cửa với tên lửa hạng nặng)
     for (const s of this.shots) {
-      if (s.kind === "laser" || s.done || this.time < s.t0) continue;
+      if (!isRocket(s.kind) || s.done || this.time < s.t0) continue;
       const { x, y, ang, sc } = this.rocketPose(s);
       ctx.save();
       ctx.translate(x, y);
@@ -1192,7 +1431,7 @@ export class Game {
         ctx.stroke();
       }
       ctx.restore();
-      if (s.kind !== "rocket") text(ctx, short(s.user.name, 14), x, y + 22 * sc, 22, "#ffd55a", "center", 800);
+      if (s.kind !== "rocket" && s.label) text(ctx, short(s.user.name, 14), x, y + 22 * sc, 22, "#ffd55a", "center", 800);
     }
   }
 
@@ -1201,41 +1440,119 @@ export class Game {
     const uu = ease(u);
     const [x, y] = this.shotPos(s, uu);
     const [qx, qy] = this.shotPos(s, Math.min(1, uu + 0.02));
-    return { x, y, ang: Math.atan2(qy - y, qx - x), sc: s.kind === "rocket" ? 1.3 : s.kind === "heavy" ? 2.2 : 2.9 };
+    return { x, y, ang: Math.atan2(qy - y, qx - x), sc: s.kind === "heavy" ? 2.2 : s.kind === "mega" ? 2.9 : 1.3 };
   }
 
-  /** PHÁO TRÁI ĐẤT: cột năng lượng khổng lồ từ mặt đất bắn thẳng vào UFO */
-  private drawCannons(ctx: CanvasRenderingContext2D) {
+  /** Tia năng lượng: PHÁO TRÁI ĐẤT (từ mặt đất), laser đôi kính râm (từ bong bóng), tia vũ trụ (từ quỹ đạo) */
+  private drawBeams(ctx: CanvasRenderingContext2D) {
     if (!this.ufoAlive) return;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    for (const c of this.cannons) {
-      const u = (this.time - c.t0) / c.dur;
+    ctx.lineCap = "round";
+    const line = (x0: number, y0: number, x1: number, y1: number, w: number, col: string) => {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    };
+    for (const b of this.beams) {
+      const u = (this.time - b.t0) / b.dur;
       if (u < 0 || u > 1.15) continue;
-      const k = u < 0.08 ? u / 0.08 : u > 1 ? 1 - (u - 1) / 0.15 : 1;
-      const x0 = c.x;
-      const y0 = GROUND_Y + 60;
+      const k = (u < 0.08 ? u / 0.08 : u > 1 ? 1 - (u - 1) / 0.15 : 1) * (0.9 + 0.1 * Math.sin(this.time * 40));
       const x1 = this.ux;
       const y1 = this.uy + 20;
-      for (const [w, col] of [[120, "rgba(255,90,110,0.25)"], [70, "rgba(255,160,120,0.45)"], [30, "rgba(255,240,220,0.9)"]] as const) {
-        ctx.strokeStyle = col;
-        ctx.lineWidth = w * k * (0.9 + 0.1 * Math.sin(this.time * 40));
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.moveTo(x0, y0);
-        ctx.lineTo(x1, y1);
-        ctx.stroke();
+      if (b.style === "earth") {
+        for (const [w, col] of [[120, "rgba(255,90,110,0.25)"], [70, "rgba(255,160,120,0.45)"], [30, "rgba(255,240,220,0.9)"]] as const) line(b.x, b.y, x1, y1, w * k, col);
+        ctx.globalAlpha = k;
+        ctx.drawImage(this.glows[1], x1 - 160, y1 - 160, 320, 320);
+        ctx.drawImage(this.glows[0], b.x - 120, b.y - 120, 240, 240);
+        ctx.globalAlpha = 1;
+        text(ctx, short(b.user.name, 16), b.x, b.y - 150, 30, "#fff", "center", 900);
+      } else if (b.style === "twin") {
+        // hai tia từ "kính râm" của người tặng, quét nhẹ trên thân đĩa
+        const sweep = Math.sin(this.time * 6) * 70 * S;
+        for (const [dx, col] of [[-16, "rgba(255,80,220,0.8)"], [16, "rgba(90,220,255,0.8)"]] as const) {
+          line(b.x + dx, b.y, x1 + sweep + dx * 3, y1, 16 * k, col);
+          line(b.x + dx, b.y, x1 + sweep + dx * 3, y1, 5 * k, "rgba(255,255,255,0.95)");
+          ctx.globalAlpha = k;
+          ctx.drawImage(this.glows[2], x1 + sweep + dx * 3 - 50, y1 - 50, 100, 100);
+          ctx.globalAlpha = 1;
+        }
+        ctx.globalCompositeOperation = "source-over";
+        text(ctx, "😎", b.x, b.y - 4, 44, "#fff", "center", 400);
+        ctx.globalCompositeOperation = "lighter";
+      } else {
+        // cột sáng khổng lồ từ quỹ đạo xuống thẳng UFO
+        const x0 = x1 + Math.sin(this.time * 3) * 10;
+        for (const [w, col] of [[300, "rgba(90,160,255,0.18)"], [170, "rgba(140,200,255,0.35)"], [70, "rgba(235,245,255,0.95)"]] as const) line(x0, -60, x1, y1, w * k, col);
+        ctx.globalAlpha = k;
+        ctx.drawImage(this.glows[2], x1 - 260, y1 - 200, 520, 400);
+        ctx.globalAlpha = 1;
       }
-      ctx.globalAlpha = k;
-      ctx.drawImage(this.glows[1], x1 - 160, y1 - 160, 320, 320);
-      ctx.drawImage(this.glows[0], x0 - 120, y0 - 120, 240, 240);
-      ctx.globalAlpha = 1;
-      text(ctx, short(c.user.name, 16), x0, y0 - 150, 30, "#fff", "center", 900);
     }
     ctx.restore();
   }
 
+  /** Rương xu: dù sọc đỏ trắng + thùng gỗ viền vàng có ảnh người thả */
+  private drawCrates(ctx: CanvasRenderingContext2D) {
+    for (const c of this.crates) {
+      const x = this.crateX(c);
+      const y = this.crateY(c);
+      const opened = c.openT >= 0;
+      const fade = opened ? clamp(1 - (this.time - c.openT) / 1.2, 0, 1) : 1;
+      ctx.save();
+      ctx.globalAlpha = fade;
+      if (!opened) {
+        const cy = y - 150;
+        for (let i = 0; i < 6; i++) {
+          ctx.fillStyle = i % 2 ? "#f4f4f4" : "#e63950";
+          ctx.beginPath();
+          ctx.moveTo(x, cy);
+          ctx.arc(x, cy, 90, Math.PI + (i * Math.PI) / 6, Math.PI + ((i + 1) * Math.PI) / 6);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(255,255,255,0.6)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (const dx of [-88, -40, 40, 88]) {
+          ctx.moveTo(x + dx, cy);
+          ctx.lineTo(x + dx * 0.3, y - 30);
+        }
+        ctx.stroke();
+      } else {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.drawImage(this.glows[0], x - 160, y - 200, 320, 320);
+        ctx.globalCompositeOperation = "source-over";
+      }
+      // thùng
+      ctx.fillStyle = "#7a4a22";
+      ctx.fillRect(x - 46, y - 34, 92, 64);
+      ctx.fillStyle = "#ffd55a";
+      ctx.fillRect(x - 46, y - 8, 92, 10);
+      ctx.fillRect(x - 5, y - 34, 10, 64);
+      if (!opened) {
+        ctx.fillStyle = "#5d3618";
+        ctx.fillRect(x - 50, y - 44, 100, 14);
+      }
+      ctx.drawImage(this.avatars.get(c.user), x - 20, y - 26, 40, 40);
+      text(ctx, `${fmt(c.coins)} xu`, x, y + 48, 22, "#ffd55a", "center", 900);
+      ctx.restore();
+    }
+  }
+
   private drawFx(ctx: CanvasRenderingContext2D) {
+    for (const f of this.confetti) {
+      ctx.save();
+      ctx.globalAlpha = clamp(f.life / 0.5, 0, 1);
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.rot);
+      ctx.fillStyle = f.color;
+      ctx.fillRect(-7, -4, 14, 8 * Math.abs(Math.cos(f.rot * 1.3)) + 1);
+      ctx.restore();
+    }
     // mảnh vỡ
     for (const d of this.debris) {
       ctx.save();
@@ -1341,16 +1658,17 @@ export class Game {
       ctx.beginPath();
       ctx.roundRect(x, y, w, h, 20);
       ctx.stroke();
-      text(ctx, `👽 UFO  ${fmt(Math.ceil(this.hpShown))} / ${fmt(this.hpMax)}`, CX, y + h / 2 + 1, 24, "#fff", "center", 900);
+      text(ctx, `👽 UFO  ${fmt(this.hp <= 0 ? 0 : Math.max(1, Math.round(this.hpShown)))} / ${fmt(this.hpMax)}`, CX, y + h / 2 + 1, 24, "#fff", "center", 900);
     }
     text(ctx, `VÒNG ${Math.max(1, this.round)}   ·   🌍 TRÁI ĐẤT ${this.earthWins} : ${this.ufoWins} UFO 👽`, CX, SAFE.top + 128, 26, "rgba(255,255,255,0.9)", "center", 800);
 
     if (this.phase === "battle") {
       // gợi ý luân phiên
       const tip = TIPS[Math.floor(this.time / 3.5) % TIPS.length];
-      if (this.progress <= 0.75) text(ctx, tip, CX, SAFE.top + 175, 28, "#ffe08a", "center", 800);
+      this.drawFund(ctx);
+      if (this.progress <= 0.75) text(ctx, tip, CX, SAFE.top + 206, 26, "#ffe08a", "center", 800);
       this.drawAltimeter(ctx);
-      this.drawTopShooters(ctx);
+      if (this.progress <= 0.75) this.drawTopShooters(ctx);
     }
     if (this.status) text(ctx, `● ${this.status}`, 24, H - 24, 18, "#ff8a8a", "left", 700);
     else if (this.demo) text(ctx, "DEMO", 24, H - 24, 18, "rgba(255,255,255,0.4)", "left", 700);
@@ -1381,6 +1699,35 @@ export class Game {
     text(ctx, "ĐỘ CAO", x + 9, y0 - 40, 18, "rgba(255,255,255,0.75)", "center", 800);
     text(ctx, `${km}km`, x + 9, y0 - 16, 24, "#fff", "center", 900);
     text(ctx, "🌍", x + 9, y1 + 26, 26, "#fff", "center", 400);
+  }
+
+  /** Quỹ phòng thủ (xu cả phòng góp) → ĐẠN VÀNG ×2; khi đang bật thì hiện thời gian còn lại */
+  private drawFund(ctx: CanvasRenderingContext2D) {
+    const w = 620;
+    const h = 30;
+    const x = CX - w / 2;
+    const y = SAFE.top + 152;
+    ctx.fillStyle = "rgba(10,12,24,0.75)";
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 15);
+    ctx.fill();
+    const gold = this.golden;
+    const k = gold ? clamp((this.goldUntil - this.time) / Math.max(this.bal.goldTime, 1), 0, 1) : clamp(this.fund / this.fundGoal, 0, 1);
+    if (k > 0) {
+      const g = ctx.createLinearGradient(x, 0, x + w, 0);
+      g.addColorStop(0, "#c98a1a");
+      g.addColorStop(1, "#ffe27a");
+      ctx.fillStyle = g;
+      ctx.globalAlpha = gold ? 0.75 + 0.25 * Math.sin(this.time * 10) : 1;
+      ctx.beginPath();
+      ctx.roundRect(x, y, Math.max(h, w * k), h, 15);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    const label = gold
+      ? `⚡ ĐẠN VÀNG ×2 · còn ${Math.ceil(this.goldUntil - this.time)}s`
+      : `🪙 QUỸ PHÒNG THỦ ${fmt(this.fund)} / ${fmt(this.fundGoal)} xu → ĐẠN VÀNG ×2`;
+    text(ctx, label, CX, y + h / 2 + 1, 18, "#fff", "center", 800);
   }
 
   private topShooters(n: number) {
@@ -1526,7 +1873,7 @@ export class Game {
     const w = 880;
     const h = 104;
     const x = CX - w / 2 + (1 - inK) * -W * 0.6;
-    const y = SAFE.top + 220;
+    const y = SAFE.top + 236;
     ctx.globalAlpha = out;
     const g = ctx.createLinearGradient(x, 0, x + w, 0);
     g.addColorStop(0, "rgba(10,12,28,0.92)");
@@ -1544,7 +1891,7 @@ export class Game {
       tx = x + 112;
     }
     text(ctx, short(b.title, 30), tx, y + 38, 32, b.color, "left", 900);
-    if (b.sub) text(ctx, short(b.sub, 40), tx, y + 76, 24, "rgba(255,255,255,0.88)", "left", 700);
+    if (b.sub) text(ctx, short(b.sub, 44), tx, y + 76, 24, "rgba(255,255,255,0.88)", "left", 700);
     ctx.globalAlpha = 1;
   }
 
@@ -1574,6 +1921,20 @@ function fmt(n: number) {
 function short(s: string, n: number) {
   const a = [...s];
   return a.length > n ? a.slice(0, n - 1).join("") + "…" : s;
+}
+
+/** Trái tim (tâm x,y, cỡ s) */
+function drawHeart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y + s * 0.9);
+  ctx.bezierCurveTo(x - s * 1.4, y - s * 0.1, x - s * 0.7, y - s * 1.2, x, y - s * 0.45);
+  ctx.bezierCurveTo(x + s * 0.7, y - s * 1.2, x + s * 1.4, y - s * 0.1, x, y + s * 0.9);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.beginPath();
+  ctx.ellipse(x - s * 0.45, y - s * 0.35, s * 0.22, s * 0.13, -0.6, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 /** Chữ có viền tối để đọc được trên mọi nền */

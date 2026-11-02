@@ -11,8 +11,28 @@ Hình ảnh đĩa bay, bong bóng ảnh, tia hút và tên lửa/pháo hoa đư�
 | Vào phòng / tương tác lần đầu | Bong bóng mang **ảnh đại diện + tên** của họ bật ra trên mái nhà |
 | ❤️ Thả tim | Laser bắn từ bong bóng của họ lên UFO (1 sát thương / tim) |
 | 💬 Bình luận | Tên lửa (4 sát thương, tối đa 1 phát / 1,5 s mỗi người) + bong bóng nói câu họ vừa chat |
-| 🎁 Tặng quà | Vũ khí theo tổng kim cương: **<10💎** loạt tên lửa · **10–99💎** tên lửa hạng nặng có ảnh người tặng ngồi trên · **100–999💎** 3 siêu tên lửa + rung màn · **≥1000💎** *PHÁO TRÁI ĐẤT* (cột năng lượng từ mặt đất) |
+| 🎁 Tặng quà | Mỗi món là một vũ khí riêng (bảng dưới), sát thương theo tổng **xu**; tặng liên tục hiện combo "🌹 ×12" trên bong bóng |
+| 📦 Thả rương xu | Thùng tiếp tế treo dù rơi xuống thành phố, chạm đất thì nổ tung: UFO bị đẩy lùi 5% và cả phòng được **ĐẠN VÀNG** |
 | ➕ Follow / ↗ Chia sẻ | Lá chắn: đẩy UFO lùi lên 4% / 6% quãng đường |
+
+### Quà → vũ khí
+
+| Quà (giá tham khảo) | Vũ khí |
+|---|---|
+| 🌹 Hoa hồng (1 xu) | Tên lửa hoa hồng, nổ ra cánh hoa |
+| 🎵 TikTok · 🍦 Kem ốc quế (1 xu) | Loạt tên lửa nhỏ |
+| 🫰 Tim ngón tay (5 xu) | Chùm đạn trái tim |
+| 🧴 Nước hoa · 🍩 Bánh donut · 🎩 Mũ và ria (20–99 xu) | Tên lửa hạng nặng, ảnh người tặng ngồi trên |
+| 🫶 Tim bằng tay · 🎉 Pháo giấy (100 xu) | Bom pháo giấy |
+| 😎 Kính râm (199 xu) | Laser đôi hồng–xanh bắn từ bong bóng người tặng |
+| 🐶 Corgi (299 xu) | 3 siêu tên lửa + rung màn |
+| 💸 Súng bắn tiền (500 xu) | Mưa tờ tiền bay lên UFO |
+| 🌌 Thiên hà · 🎆 Pháo hoa (1.000+ xu) | *PHÁO TRÁI ĐẤT*: cột năng lượng từ mặt đất |
+| 🦁 Sư tử · 🪐 Vũ trụ (30.000+ xu) | *SIÊU VŨ KHÍ VŨ TRỤ*: màn tối lại, tia sáng từ quỹ đạo + phi đội tên lửa bay lên từ mọi bong bóng |
+
+Quà không có trong danh sách vẫn dùng được, vũ khí được chọn theo giá. Khi live, bridge gửi giá thật của từng món nên sát thương luôn theo đúng số xu. Danh mục nằm ở `src/game/gifts.ts` (thêm quà = thêm 1 dòng).
+
+**Quỹ phòng thủ & ĐẠN VÀNG**: mọi xu tặng trong trận (kể cả rương xu) dồn vào thanh *QUỸ PHÒNG THỦ*. Đầy mốc (100 xu, mốc sau ×1,6) → **ĐẠN VÀNG ×2** trong 12 giây: tim và bình luận của **cả phòng** gây gấp đôi sát thương (cộng dồn tối đa 30 giây). Người tặng giúp cả phòng mạnh lên, ai cũng có lý do ở lại thả tim.
 
 Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc thua → nghỉ 6,5 s**.
 
@@ -21,7 +41,7 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 - Còn 25% độ cao: màn đỏ nhấp nháy, còi báo động, "THẢ TIM NGAY! CÒN X GIÂY" — khoảnh khắc lật kèo phút chót dễ cắt clip.
 - **UFO VÀNG** (trùm, máu ×2,2): ~8% số vòng và mỗi vòng thứ 10.
 - **Tự cân bằng**: máu UFO = (260 + 30 × số người tương tác trong 2 phút) × hệ số độ khó; thắng → hệ số ×1,18, thua → ×0,8. Phòng đông hay vắng đều có trận sát nút.
-- **Quà mạnh nhưng không "mua thắng"**: mỗi lượt tặng gây tối đa 12% / 20% / 35% / 60% máu tối đa theo cấp vũ khí.
+- **Quà mạnh nhưng không "mua thắng"**: mỗi lượt tặng gây tối đa 12% (quà nhỏ) / 20% / 35% / 60% (Pháo Trái Đất) / 85% (Siêu vũ khí) máu tối đa. ĐẠN VÀNG chỉ nhân đôi tim & bình luận, không nhân đôi quà.
 
 > ⚠️ Không gắn quà/tim với cơ hội nhận **phần thưởng có giá trị thật** (tiền, voucher…) — dễ bị coi là cờ bạc / vi phạm chính sách quà tặng LIVE của TikTok. Phần thưởng trong game chỉ là vinh danh trên màn hình.
 
@@ -37,7 +57,7 @@ npm install
 npm run dev
 ```
 
-Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phòng, thả tim, chat, tặng quà. Bấm **H** để xem phím tắt.
+Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phòng, thả tim, chat, tặng quà, thả rương xu. Ở chế độ demo có thanh nút và **bảng tặng quà** ở dưới (chạm màn hình = thả tim); bấm **H** để xem phím tắt.
 
 ## Lên live
 
@@ -57,7 +77,8 @@ Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phò
 | Phím | Tác dụng |
 |---|---|
 | L / C | thử tim ×10 / bình luận |
-| 1 2 3 4 | thử quà 5×1💎 / 20💎 / 199💎 / 1000💎 |
+| G / E | mở bảng quà / thả rương xu 199 xu |
+| 1 … 8 | hoa hồng ×5 · tim ngón tay · nước hoa · pháo giấy · kính râm · súng bắn tiền · thiên hà · vũ trụ |
 | F / S / J | thử follow / chia sẻ / thêm người xem |
 | D, `[` `]` | bật/tắt người xem giả, đổi độ đông |
 | R / B / N | chơi lại / vòng sau UFO VÀNG / qua pha tiếp |
@@ -65,7 +86,7 @@ Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phò
 
 ### Tham số URL
 
-`?demo=1&crowd=0..3` người xem giả · `time=75` thời gian hạ (giây) · `hp=260` máu cơ bản · `hpv=30` máu thêm mỗi người xem · `like=1` `chat=4` `gift=12` sát thương · `boss=0.08` xác suất UFO VÀNG · `mute=1` · `ws=ws://host:port/ws` địa chỉ bridge khác.
+`?demo=1&crowd=0..3` người xem giả · `time=75` thời gian hạ (giây) · `hp=260` máu cơ bản · `hpv=30` máu thêm mỗi người xem · `like=1` `chat=4` `gift=12` sát thương (gift = mỗi xu) · `fund=100` mốc quỹ đầu tiên · `boss=0.08` xác suất UFO VÀNG · `mute=1` · `ws=ws://host:port/ws` địa chỉ bridge khác.
 
 ### Biến môi trường của bridge
 
@@ -80,10 +101,14 @@ Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phò
 `POST /emit` nhận 1 sự kiện hoặc mảng sự kiện JSON — dùng để thử hoặc nối webhook từ công cụ khác:
 
 ```bash
-curl -X POST localhost:8787/emit -d '{"type":"gift","user":{"id":"an","name":"An"},"gift":"Hoa hồng","diamonds":1,"count":5}'
+curl -X POST localhost:8787/emit -d '{"type":"gift","user":{"id":"an","name":"An"},"gift":"Hoa hồng","coins":1,"count":5}'
 ```
 
-Dạng sự kiện: xem `src/live/events.ts` (`join`, `like`, `chat`, `gift`, `follow`, `share`).
+```bash
+curl -X POST localhost:8787/emit -d '{"type":"envelope","user":{"id":"an","name":"An"},"coins":199}'
+```
+
+Dạng sự kiện: xem `src/live/events.ts` (`join`, `like`, `chat`, `gift`, `envelope`, `follow`, `share`).
 
 ## Lưu ý về kết nối TikTok
 
@@ -95,9 +120,11 @@ Bridge dùng thư viện cộng đồng [`tiktok-live-connector`](https://github
 src/main.ts            khởi động, co giãn 9:16, phím tắt, vòng lặp
 src/game/game.ts       toàn bộ luật chơi + vẽ (intro / battle / win / lose / break)
 src/game/sprites.ts    đĩa bay, bong bóng, nền thành phố (vẽ bằng code)
-src/game/balance.ts    bảng cân bằng, cấp vũ khí theo kim cương
+src/game/balance.ts    bảng cân bằng (máu, sát thương, quỹ phòng thủ)
+src/game/gifts.ts      danh mục quà → vũ khí, trần sát thương
 src/game/avatars.ts    ảnh đại diện tròn (tải qua /avatar)
 src/game/sfx.ts        âm thanh tổng hợp WebAudio
 src/live/              kiểu sự kiện, WebSocket client, người xem giả lập
+src/ui/panel.ts        thanh nút + bảng tặng quà (chỉ chế độ demo)
 server/index.ts        bridge TikTok → WebSocket, proxy ảnh, phục vụ dist/
 ```

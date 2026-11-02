@@ -3,7 +3,7 @@
  *
  *   TikTok LIVE ──(tiktok-live-connector)──▶ bridge ──WebSocket /ws──▶ trang game (Browser Source trong OBS / LIVE Studio)
  *
- * - Chuẩn hoá sự kiện (vào phòng, tim, bình luận, quà, follow, chia sẻ) về dạng LiveEvent của game.
+ * - Chuẩn hoá sự kiện (vào phòng, tim, bình luận, quà, rương xu, follow, chia sẻ) về dạng LiveEvent của game.
  * - Quà combo (giftType 1) được TikTok gửi lặp lại với repeatCount tăng dần → bridge chỉ phát phần MỚI để tên lửa bắn ngay theo từng lần bấm.
  * - /avatar?u=… : proxy ảnh đại diện TikTok (chỉ các CDN của TikTok) để canvas cùng origin.
  * - POST /emit  : bơm sự kiện tay (thử nghiệm, hoặc nối webhook từ công cụ khác).
@@ -79,7 +79,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   createReadStream(file).pipe(res);
 }
 
-/** Bơm sự kiện tay: curl -X POST localhost:8787/emit -d '{"type":"gift","user":{"id":"a","name":"An"},"gift":"Rose","diamonds":1,"count":5}' */
+/** Bơm sự kiện tay: curl -X POST localhost:8787/emit -d '{"type":"gift","user":{"id":"a","name":"An"},"gift":"Rose","coins":1,"count":5}' */
 async function emit(req: IncomingMessage, res: ServerResponse) {
   let body = "";
   for await (const chunk of req) {
@@ -118,7 +118,10 @@ function sanitize(raw: unknown): LiveEvent | null {
     case "chat":
       return user ? { type: "chat", user, text: String(r.text ?? "").slice(0, 200) } : null;
     case "gift":
-      return user ? { type: "gift", user, gift: String(r.gift ?? "Quà").slice(0, 40), diamonds: Math.max(0, num(r.diamonds, 1)), count: Math.min(10_000, Math.max(1, num(r.count, 1))) } : null;
+      // nhận cả "diamonds" (tên trường cũ) cho tương thích
+      return user ? { type: "gift", user, gift: String(r.gift ?? "Quà").slice(0, 40), coins: Math.max(0, num(r.coins ?? r.diamonds, 1)), count: Math.min(10_000, Math.max(1, num(r.count, 1))) } : null;
+    case "envelope":
+      return user ? { type: "envelope", user, coins: Math.min(1_000_000, Math.max(1, num(r.coins, 1))) } : null;
     default:
       return null;
   }
@@ -177,7 +180,8 @@ function onGift(d: Loose) {
   const user = toUser(d.user);
   if (!user) return;
   const giftType = d.giftDetails?.giftType ?? d.giftType;
-  const diamonds = Number(d.giftDetails?.diamondCount ?? d.diamondCount ?? 1) || 1;
+  // TikTok gọi trường này là diamondCount nhưng giá trị là giá quà tính bằng xu (Hoa hồng = 1)
+  const coins = Number(d.giftDetails?.diamondCount ?? d.diamondCount ?? 1) || 1;
   const gift = String(d.giftDetails?.giftName || d.giftName || "Quà");
   const repeat = Math.max(1, Number(d.repeatCount) || 1);
   let count = repeat;
@@ -188,7 +192,7 @@ function onGift(d: Loose) {
     if (d.repeatEnd) streaks.delete(key);
     else streaks.set(key, { n: repeat, at: Date.now() });
   }
-  if (count > 0) broadcast({ type: "gift", user, gift, diamonds, count });
+  if (count > 0) broadcast({ type: "gift", user, gift, coins, count });
 }
 
 setInterval(() => {
@@ -222,6 +226,12 @@ async function connectTikTok() {
     if (user) broadcast({ type: "chat", user, text: String(d.comment ?? "").slice(0, 200) });
   });
   c.on(WebcastEvent.GIFT, onGift);
+  c.on(WebcastEvent.ENVELOPE, (d: Loose) => {
+    // rương xu: người thả nằm khá sâu trong gói tin
+    const user = toUser(d.treasureBoxUser?.user2?.user3?.[0]?.user4?.user ?? d.user);
+    const coins = Number(d.treasureBoxData?.coins) || 0;
+    if (user && coins > 0) broadcast({ type: "envelope", user, coins });
+  });
   c.on(WebcastEvent.FOLLOW, (d: Loose) => {
     const user = toUser(d.user);
     if (user) broadcast({ type: "follow", user });

@@ -1,9 +1,11 @@
 import { balanceFromQuery } from "./game/balance";
+import { GIFTS } from "./game/gifts";
 import { Game, type Phase } from "./game/game";
 import { H, W } from "./game/stage";
 import { DemoCrowd } from "./live/demo";
 import type { LiveEvent, LiveUser } from "./live/events";
 import { connectBridge } from "./live/socket";
+import { mountDemoPanel } from "./ui/panel";
 
 // Bản nhúng (vd trang chơi thử) có thể đặt sẵn tham số qua window.UFO_PRESET thay cho query string
 const preset = (window as unknown as { UFO_PRESET?: string }).UFO_PRESET;
@@ -48,12 +50,23 @@ const me: LiveUser = { id: "host", name: "Chủ phòng", avatar: "demo:140" };
 const help = document.getElementById("help")!;
 help.innerHTML = [
   "<b>BẢO VỆ TRÁI ĐẤT</b> — phím tắt",
-  "L: tim ×10 · C: bình luận · 1/2/3/4: quà (hoa hồng / 20💎 / 199💎 / 1000💎)",
+  "L: tim ×10 · C: bình luận · G: bảng quà · E: rương xu 199 xu",
+  "Quà: 1 hoa hồng ×5 · 2 tim ngón tay · 3 nước hoa · 4 pháo giấy · 5 kính râm · 6 súng bắn tiền · 7 thiên hà · 8 vũ trụ",
   "F: follow · S: chia sẻ · J: thêm người xem giả",
   "D: bật/tắt người xem giả · [ ]: độ đông demo",
   "R: chơi lại từ đầu · B: vòng sau là UFO VÀNG · N: qua pha tiếp",
   "M: tắt/bật âm thanh · H: ẩn/hiện bảng này",
 ].join("\n");
+const GIFT_KEYS: Record<string, [string, number]> = {
+  "1": ["rose", 5],
+  "2": ["fingerheart", 1],
+  "3": ["perfume", 1],
+  "4": ["confetti", 1],
+  "5": ["sunglasses", 1],
+  "6": ["moneygun", 1],
+  "7": ["galaxy", 1],
+  "8": ["universe", 1],
+};
 let joinN = 0;
 addEventListener("keydown", (e) => {
   game.sfx.unlock();
@@ -61,10 +74,12 @@ addEventListener("keydown", (e) => {
   if (k === "h") help.style.display = help.style.display === "block" ? "none" : "block";
   else if (k === "l") sink({ type: "like", user: me, count: 10 });
   else if (k === "c") sink({ type: "chat", user: me, text: "bắn!!!" });
-  else if (k === "1") sink({ type: "gift", user: me, gift: "Hoa hồng", diamonds: 1, count: 5 });
-  else if (k === "2") sink({ type: "gift", user: me, gift: "Nước hoa", diamonds: 20, count: 1 });
-  else if (k === "3") sink({ type: "gift", user: me, gift: "Kính râm", diamonds: 199, count: 1 });
-  else if (k === "4") sink({ type: "gift", user: me, gift: "Thiên hà", diamonds: 1000, count: 1 });
+  else if (GIFT_KEYS[k]) {
+    const [key, count] = GIFT_KEYS[k];
+    const g = GIFTS.find((x) => x.key === key)!;
+    sink({ type: "gift", user: me, gift: g.name, coins: g.coins, count });
+  } else if (k === "e") sink({ type: "envelope", user: me, coins: 199 });
+  else if (k === "g") panel.toggleGifts();
   else if (k === "f") sink({ type: "follow", user: me });
   else if (k === "s") sink({ type: "share", user: me });
   else if (k === "j") sink({ type: "join", user: { id: `guest-${++joinN}`, name: `Khách ${joinN}`, avatar: `demo:${(joinN * 67) % 360}` } });
@@ -76,14 +91,17 @@ addEventListener("keydown", (e) => {
     game.debugPhase(order[(order.indexOf(game.phase) + 1) % order.length]);
   } else if (k === "d") {
     game.demo = !game.demo;
+    panel.show(game.demo);
     if (game.demo) demo.start();
     else demo.stop();
   } else if (k === "[") demo.level = Math.max(0, demo.level - 1);
   else if (k === "]") demo.level = Math.min(3, demo.level + 1);
 });
 addEventListener("pointerdown", () => game.sfx.unlock());
-// chế độ demo: chạm vào màn hình = thả tim (thử trên điện thoại không cần bàn phím)
+// chế độ demo: chạm vào màn hình = thả tim, thanh nút + bảng quà để thử trên điện thoại
 const you: LiveUser = { id: "you", name: "Bạn", avatar: "demo:200" };
+const panel = mountDemoPanel(sink, you, () => game.sfx.unlock());
+panel.show(game.demo);
 canvas.addEventListener("pointerdown", () => {
   if (game.demo) sink({ type: "like", user: you, count: 5 });
 });
