@@ -3,6 +3,7 @@ import { Avatars } from "./avatars";
 import type { Balance } from "./balance";
 import { font } from "./font";
 import { Scene } from "./scene";
+import { drawWarped } from "./warp";
 import { BOSS_ART, BOSSES, isMilestone, milestoneBoss, nextMilestone, PLANET_EYE, RANDOM_BOSSES, makeBossSprite, type BossDef, type BossId } from "./bosses";
 import { resolveGift, WEAPON_CAP, WEAPON_LABEL } from "./gifts";
 import { approach, clamp, easeInOutCubic, easeOutBack, lerp, pick, rand } from "./math";
@@ -1805,8 +1806,11 @@ export class Game {
     const alpha = 1 - 0.85 * this.cloak;
     const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, cruiser: 1, crystal: 6, mother: 0, planet: 1 };
     ctx.save();
-    ctx.translate(this.ux, this.uy + Math.sin(t * 1.6) * 4);
-    ctx.rotate(this.tilt * 0.6);
+    const organic = d.id === "octopus";
+    // bạch tuộc bơi kiểu sứa: mỗi nhịp co thân thì nhấp lên, không nghiêng cứng như tấm bìa
+    const swim = Math.sin(t * 2.4);
+    ctx.translate(this.ux, this.uy + (organic ? -swim * 10 : Math.sin(t * 1.6) * 4));
+    ctx.rotate(this.tilt * (organic ? 0.15 : 0.6));
     ctx.imageSmoothingQuality = "high";
     // hào quang sau lưng (trùm mốc rực hơn)
     ctx.save();
@@ -1828,11 +1832,14 @@ export class Game {
         const jx = (Math.random() - 0.5) * 40 * this.cloak;
         ctx.drawImage(img, 0, (img.naturalHeight * i) / n, img.naturalWidth, img.naturalHeight / n, ox + jx, oy + (h * i) / n, w, h / n);
       }
-    } else ctx.drawImage(img, ox, oy, w, h);
+    } else if (organic) drawWarped(ctx, img, ox, oy, w, h, 8, 12, this.octopusWarp(w, h, t));
+    else ctx.drawImage(img, ox, oy, w, h);
     ctx.globalCompositeOperation = "lighter";
     if (this.hitFlash > 0.02) {
       ctx.globalAlpha = this.hitFlash * 0.32 * alpha;
-      ctx.drawImage(img, ox, oy, w, h);
+      // bạch tuộc: chớp bằng quầng sáng thay vì vẽ lại cả lưới (đỡ tốn)
+      if (organic) ctx.drawImage(this.glows[2], -w * 0.45, g.cy - h * 0.35, w * 0.9, h * 0.6);
+      else ctx.drawImage(img, ox, oy, w, h);
     }
     ctx.globalAlpha = alpha;
     switch (d.id) {
@@ -1955,6 +1962,31 @@ export class Game {
       }
     }
     ctx.restore();
+  }
+
+  /**
+   * Biến dạng art bạch tuộc mỗi khung: đầu phình–xẹp theo nhịp bơi; xúc tu (dưới vành mũ, v > 0.5)
+   * uốn sóng từ gốc ra ngọn, mỗi xúc tu lệch pha theo vị trí ngang, xoè ra rồi khép lại như sứa đẩy nước.
+   * Khi đang tóm người thì các xúc tu quẫy mạnh hơn.
+   */
+  private octopusWarp(w: number, h: number, t: number) {
+    const ROOT = 0.5;
+    const swim = Math.sin(t * 2.4);
+    const kick = Math.sin(t * 2.4 - 0.9);
+    const wild = this.grab ? 1.6 : 1;
+    return (u: number, v: number): [number, number] => {
+      const x = (u - 0.5) * w;
+      if (v < ROOT) {
+        const k = (ROOT - v) / ROOT;
+        return [x * 0.04 * swim * (1 - 0.4 * k), -k * h * 0.025 * swim];
+      }
+      const s = (v - ROOT) / (1 - ROOT);
+      const e = s * s;
+      const wave = Math.sin(t * 2.8 * wild - s * 4.5 + u * 10) * 30 * wild * e;
+      const spread = x * 0.18 * e * kick;
+      const curl = Math.sin(t * 1.3 + u * 6) * 10 * e;
+      return [wave + spread + curl, -kick * 22 * e + Math.sin(t * 3.1 + u * 7) * 6 * s];
+    };
   }
 
   /** Xúc tu bạch tuộc uốn lượn dưới bụng */
