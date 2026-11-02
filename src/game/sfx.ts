@@ -21,6 +21,8 @@ export interface AudioState {
 /** tiếng động cơ từng trùm: tần số gốc, độ mở bộ lọc, âm lượng tương đối */
 const HUM: Record<BossId, [number, number, number]> = {
   ufo: [48, 260, 1],
+  ufo2: [52, 300, 1],
+  ufo3: [44, 420, 1],
   gold: [55, 340, 0.9],
   octopus: [40, 200, 0.8],
   stealth: [64, 520, 0.6],

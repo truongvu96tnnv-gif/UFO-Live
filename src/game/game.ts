@@ -7,7 +7,7 @@ import { SpriteAnim } from "./anim";
 import { LASER_KINDS } from "./audio/voices";
 import { drawWarped } from "./warp";
 import { bossOver, bossUnder, MOTION, type FxCtx } from "./bossfx";
-import { BOSS_ANIM, BOSS_ART, BOSSES, isMilestone, milestoneBoss, nextMilestone, PLANET_EYE, RANDOM_BOSSES, makeBossSprite, type BossDef, type BossId } from "./bosses";
+import { BOSS_ANIM, BOSS_ART, BOSSES, NORMAL_UFOS, isMilestone, milestoneBoss, nextMilestone, PLANET_EYE, RANDOM_BOSSES, makeBossSprite, type BossDef, type BossId } from "./bosses";
 import { resolveGift, WEAPON_CAP, WEAPON_LABEL } from "./gifts";
 import { approach, clamp, easeInOutCubic, easeOutBack, lerp, pick, rand } from "./math";
 import { Sfx } from "./sfx";
@@ -541,7 +541,8 @@ export class Game {
   private startRound() {
     this.round++;
     // chọn trùm: trùm mốc chuỗi thắng > trùm ngẫu nhiên > UFO thường
-    let id: BossId = "ufo";
+    // vòng thường: đổi mẫu UFO, tránh lặp mẫu vừa gặp
+    let id: BossId = pick(NORMAL_UFOS.filter((u) => u !== this.bossDef.id));
     if (this.forcedBoss) id = this.forcedBoss;
     else if (this.streak > 0 && isMilestone(this.streak)) id = milestoneBoss(this.streak);
     else if (this.round > 1 && Math.random() < this.bal.bossChance) id = pick(RANDOM_BOSSES);
@@ -2150,7 +2151,7 @@ export class Game {
     const at = (fx: number, fy: number): [number, number] => [ox + w * fx, oy + h * fy];
     const danger = this.phase === "battle" && this.progress > 0.75;
     const alpha = 1 - 0.85 * this.cloak;
-    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, spider: 4, devourer: 1, dragon: 5, crystal: 6, mother: 0, planet: 1 };
+    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, ufo2: danger ? 1 : 6, ufo3: danger ? 1 : 6, gold: 0, octopus: 5, stealth: 6, spider: 4, devourer: 1, dragon: 5, crystal: 6, mother: 0, planet: 1 };
     ctx.save();
     const organic = d.id === "octopus" || d.id === "spider" || d.id === "dragon" || d.id === "devourer";
     // nhịp lơ lửng & chao nghiêng riêng từng trùm (đo từ video giới thiệu boss)
@@ -2165,7 +2166,7 @@ export class Game {
     ctx.globalAlpha = (d.kind === "milestone" ? 0.38 : 0.22) * alpha + 0.08 * Math.sin(t * 3);
     ctx.drawImage(this.glows[AURA[d.id]], -w * 0.62, g.cy - h * 0.55, w * 1.24, h * 1.1);
     // ánh sáng hắt dưới bụng đĩa
-    if (d.id === "ufo" || d.id === "gold" || d.id === "mother") {
+    if (d.id === "ufo" || d.id === "ufo2" || d.id === "gold" || d.id === "mother") {
       ctx.globalAlpha = 0.55 + 0.25 * Math.sin(t * 5);
       ctx.drawImage(this.glows[d.id === "gold" ? 0 : danger ? 1 : 4], -w * 0.28, g.belly - 50, w * 0.56, 90);
     }
@@ -2195,6 +2196,44 @@ export class Game {
     }
     ctx.globalAlpha = alpha;
     switch (d.id) {
+      case "ufo2": {
+        // cổng hút dưới bụng đập sáng, vòm kính lấp lánh, 4 động cơ phụt xanh
+        const [px, py] = at(0.5, 0.86);
+        ctx.globalAlpha = (0.55 + 0.45 * Math.sin(t * 4)) * alpha;
+        ctx.drawImage(this.glows[6], px - 70, py - 30, 140, 60);
+        const [dx, dy] = at(0.5, 0.16);
+        ctx.globalAlpha = (0.25 + 0.2 * Math.sin(t * 2.3)) * alpha;
+        ctx.drawImage(this.glows[2], dx - 110, dy - 60, 220, 120);
+        for (const [fx, fy] of [[0.15, 0.73], [0.32, 0.9], [0.68, 0.9], [0.85, 0.73]] as const) {
+          const [ex, ey] = at(fx, fy);
+          ctx.globalAlpha = (0.6 + 0.4 * Math.random()) * alpha;
+          ctx.drawImage(this.glows[6], ex - 24, ey - 10, 48, 48);
+        }
+        break;
+      }
+      case "ufo3": {
+        // lõi plasma đập + tia điện tím chập chờn quanh vòng
+        const [cx, cy] = at(0.5, 0.42);
+        const p = 0.5 + 0.5 * Math.sin(t * 5);
+        ctx.globalAlpha = (0.45 + 0.45 * p) * alpha;
+        ctx.drawImage(this.glows[6], cx - 120 - 30 * p, cy - 120 - 30 * p, 240 + 60 * p, 240 + 60 * p);
+        ctx.drawImage(this.glows[2], cx - 40, cy - 40, 80, 80);
+        if (Math.random() < 0.5) {
+          ctx.globalAlpha = 0.8 * alpha;
+          ctx.strokeStyle = "rgba(200,140,255,0.9)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          let [x, y] = at(0.5 + (Math.random() - 0.5) * 0.5, 0.55);
+          ctx.moveTo(x, y);
+          for (let i = 0; i < 5; i++) {
+            x += (Math.random() - 0.5) * 50;
+            y += (Math.random() - 0.5) * 30;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        break;
+      }
       case "ufo": {
         // vành đèn đỏ thở theo nhịp, gần đất thì nháy gấp
         ctx.globalAlpha = (danger ? 0.5 + 0.5 * Math.sin(t * 14) : 0.35 + 0.25 * Math.sin(t * 3)) * alpha;

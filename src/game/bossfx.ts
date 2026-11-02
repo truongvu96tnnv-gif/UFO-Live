@@ -15,6 +15,8 @@ import type { Img } from "./sprites";
 /** Nhịp lơ lửng của từng trùm: nhấp nhô (px, Hz) & chao nghiêng (rad, Hz) */
 export const MOTION: Record<BossId, { bob: number; bobHz: number; roll: number; rollHz: number; spin: number }> = {
   ufo: { bob: 9, bobHz: 0.55, roll: 0.05, rollHz: 0.35, spin: 0 },
+  ufo2: { bob: 8, bobHz: 0.45, roll: 0.04, rollHz: 0.3, spin: 0 },
+  ufo3: { bob: 10, bobHz: 0.38, roll: 0.03, rollHz: 0.26, spin: 0 },
   gold: { bob: 5, bobHz: 0.4, roll: 0.02, rollHz: 0.25, spin: 0 },
   octopus: { bob: 8, bobHz: 0.38, roll: 0.03, rollHz: 0.22, spin: 0 },
   stealth: { bob: 7, bobHz: 0.45, roll: 0.06, rollHz: 0.3, spin: 0 },

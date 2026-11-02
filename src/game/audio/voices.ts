@@ -12,6 +12,8 @@ const r = (a: number, b: number) => a + Math.random() * (b - a);
 export type Material = "metal" | "gold" | "flesh" | "glass" | "rock";
 export const MATERIAL: Record<BossId, Material> = {
   ufo: "metal",
+  ufo2: "metal",
+  ufo3: "metal",
   gold: "gold",
   octopus: "flesh",
   stealth: "metal",
@@ -245,6 +247,26 @@ export function bossIntro(e: Engine, t: number, id: BossId) {
       vib.stop(t + 2.6);
       e.hold(g.gain, t, 0.07, 0.3, 1.6, 0.6);
       horn(e, t + 0.4, false);
+      break;
+    }
+    case "ufo2": {
+      // tiếng bíp tuần tra 3 nốt đi lên + "braam"
+      [0, 0.18, 0.36].forEach((dt, i) => {
+        const g = e.gain(0, out, 0.4);
+        e.osc("square", [880, 1175, 1568][i], t + dt, 0.15, g);
+        e.env(g.gain, t + dt, 0.04, 0.003, 0.13);
+      });
+      horn(e, t + 0.5, false);
+      break;
+    }
+    case "ufo3": {
+      // lõi plasma khởi động: tiếng sạc đi lên + rè điện + "braam"
+      const g = e.gain(0, out, 0.4);
+      const o = e.osc("sawtooth", 60, t, 1.2, g);
+      o.frequency.exponentialRampToValueAtTime(700, t + 1.1);
+      e.env(g.gain, t, 0.07, 0.8, 0.35);
+      crackle(e, t + 0.3, 20, 1, out, 0.06, 4000);
+      horn(e, t + 1, false);
       break;
     }
     case "gold": {

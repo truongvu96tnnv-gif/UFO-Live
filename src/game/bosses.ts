@@ -13,7 +13,7 @@ import { canvas, makeSaucer, SCX, SCY, SH, SW, type Img } from "./sprites";
  *    Đĩa Vàng Hoàng Gia (giáp dày) · Bạch Tuộc Vũ Trụ (xúc tu bắt người) · Tàu Tàng Hình (đạn bắn trượt khi tàng hình)
  */
 
-export type BossId = "ufo" | "gold" | "octopus" | "stealth" | "spider" | "devourer" | "crystal" | "mother" | "planet" | "dragon";
+export type BossId = "ufo" | "ufo2" | "ufo3" | "gold" | "octopus" | "stealth" | "spider" | "devourer" | "crystal" | "mother" | "planet" | "dragon";
 export type Ability = "none" | "armor" | "grab" | "cloak" | "web" | "counter" | "shield" | "drones" | "charge" | "breath" | "devour";
 
 export interface BossDef {
@@ -50,6 +50,14 @@ export interface BossDef {
 export const BOSSES: Record<BossId, BossDef> = {
   ufo: {
     id: "ufo", name: "UFO Xâm Lược", kind: "normal", hpMul: 1, timeMul: 1, stars: 1, color: "#9dff7a", ability: "none",
+    power: "", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.74, hitRx: 300, hitRy: 50, hitCy: 0, bellyY: 58,
+  },
+  ufo2: {
+    id: "ufo2", name: "UFO Tuần Tra", kind: "normal", hpMul: 1, timeMul: 1, stars: 1, color: "#5ad1ff", ability: "none",
+    power: "", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.74, hitRx: 300, hitRy: 50, hitCy: 0, bellyY: 58,
+  },
+  ufo3: {
+    id: "ufo3", name: "UFO Lõi Plasma", kind: "normal", hpMul: 1, timeMul: 1, stars: 1, color: "#7ff0ff", ability: "none",
     power: "", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.74, hitRx: 300, hitRy: 50, hitCy: 0, bellyY: 58,
   },
   gold: {
@@ -90,6 +98,9 @@ export const BOSSES: Record<BossId, BossDef> = {
   },
 };
 
+/** mẫu UFO của vòng thường — đổi ngẫu nhiên mỗi vòng cho đỡ nhàm */
+export const NORMAL_UFOS: BossId[] = ["ufo", "ufo2", "ufo3"];
+
 export const RANDOM_BOSSES: BossId[] = ["gold", "octopus", "stealth", "spider", "devourer"];
 
 /** Mốc chuỗi thắng: 10, 20, 30, 50, rồi cứ +25 (75, 100, 125…) */
@@ -115,6 +126,8 @@ export function milestoneBoss(streak: number): BossId {
 export function makeBossSprite(id: BossId): Img {
   switch (id) {
     case "ufo":
+    case "ufo2":
+    case "ufo3":
       return makeSaucer();
     case "gold":
       return makeGoldSaucer();
@@ -579,6 +592,8 @@ import artSpider from "../assets/bosses/spider.webp";
 import artDragon from "../assets/bosses/dragon.webp";
 import artDevourer from "../assets/bosses/devourer.webp";
 import artUfo from "../assets/bosses/ufo.webp";
+import artUfo2 from "../assets/bosses/ufo2.webp";
+import artUfo3 from "../assets/bosses/ufo3.webp";
 
 export interface BossArt {
   url: string;
@@ -596,6 +611,8 @@ export interface BossArt {
 
 export const BOSS_ART: Record<BossId, BossArt> = {
   ufo: { url: artUfo, width: 500, cx: 0.5, cy: 0.5, hitRx: 225, hitRy: 70, hitCy: -5, belly: 95 },
+  ufo2: { url: artUfo2, width: 520, cx: 0.5, cy: 0.49, hitRx: 230, hitRy: 85, hitCy: -5, belly: 110 },
+  ufo3: { url: artUfo3, width: 500, cx: 0.5, cy: 0.525, hitRx: 220, hitRy: 150, hitCy: -10, belly: 145 },
   gold: { url: artGold, width: 560, cx: 0.5, cy: 0.52, hitRx: 240, hitRy: 85, hitCy: 0, belly: 95 },
   octopus: { url: artOctopus, width: 520, cx: 0.509, cy: 0.42, hitRx: 220, hitRy: 120, hitCy: -40, belly: 50 },
   stealth: { url: artStealth, width: 660, cx: 0.5, cy: 0.55, hitRx: 290, hitRy: 55, hitCy: 0, belly: 60 },
