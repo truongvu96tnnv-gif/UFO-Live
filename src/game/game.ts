@@ -863,7 +863,7 @@ export class Game {
   private ensurePerson(user: LiveUser): Person {
     const hit = this.people.find((p) => p.user.id === user.id);
     if (hit) {
-      hit.user = user;
+      hit.user = { ...user, avatar: user.avatar || hit.user.avatar };
       return hit;
     }
     if (this.people.length >= MAX_PEOPLE) {
@@ -878,7 +878,7 @@ export class Game {
     const z = 0.62 + Math.random() * 0.42;
     const p: Person = {
       user,
-      x0: Math.random() * (W + 240),
+      x0: Math.random() * W,
       y0: PEOPLE_Y0 + (z - 0.62) * 360 + Math.random() * 60,
       z,
       v: (10 + 22 * z) * (Math.random() < 0.5 ? 1 : -1),
@@ -898,10 +898,23 @@ export class Game {
     return p;
   }
 
+  private visible = { left: 0, top: 0, right: W, bottom: H };
+
+  setVisibleBounds(left: number, top: number, right: number, bottom: number) {
+    this.visible = { left, top, right, bottom };
+  }
+
   private personPos(p: Person): [number, number] {
-    const span = W + 240;
-    const x = ((((p.x0 + p.v * this.time) % span) + span) % span) - 120;
-    const y = Math.min(PEOPLE_Y1 + 40, p.y0 + Math.sin(this.time * 0.8 + p.p) * 10);
+    // Leave room for the bubble's pulse, name and camera shake at the edges.
+    const margin = BUBBLE_R * p.z * 1.5 + 24;
+    const left = Math.min(this.visible.left + margin, (this.visible.left + this.visible.right) / 2);
+    const right = Math.max(left, this.visible.right - margin);
+    const span = right - left;
+    const travel = span > 0 ? ((p.x0 + p.v * this.time) % (2 * span) + 2 * span) % (2 * span) : 0;
+    const x = left + (travel <= span ? travel : 2 * span - travel);
+    const top = Math.min(this.visible.top + margin, (this.visible.top + this.visible.bottom) / 2);
+    const bottom = Math.max(top, this.visible.bottom - margin - 24);
+    const y = clamp(Math.min(PEOPLE_Y1 + 40, p.y0 + Math.sin(this.time * 0.8 + p.p) * 10), top, bottom);
     return [x, y];
   }
 
@@ -1499,7 +1512,10 @@ export class Game {
     const age = this.time - p.born;
     if (age < 0) return;
     if (age < 0.6) r *= age < 0.2 ? age / 0.2 : 1 + 0.12 * Math.sin((age - 0.2) * 18) * Math.exp(-(age - 0.2) * 7);
-    if (x < -r * 2 || x > W + r * 2) return;
+    const cx = (this.visible.left + this.visible.right) / 2;
+    const cy = (this.visible.top + this.visible.bottom) / 2;
+    x = clamp(x, Math.min(cx, this.visible.left + r + 24), Math.max(cx, this.visible.right - r - 24));
+    y = clamp(y, Math.min(cy, this.visible.top + r + 24), Math.max(cy, this.visible.bottom - r - 40));
 
     if (p.fate === "cocoon" && fateU >= 0) {
       // sợi tơ treo kén

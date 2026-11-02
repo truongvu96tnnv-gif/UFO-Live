@@ -8,7 +8,8 @@ import { circleCrop, makeInitialAvatar, type Img } from "./sprites";
  */
 export class Avatars {
   private cache = new Map<string, Img>();
-  private loading = new Set<string>();
+  private sources = new Map<string, string>();
+  private retryAt = new Map<string, number>();
 
   hue(user: LiveUser) {
     const m = user.avatar?.match(/^demo:(\d+)/);
@@ -17,25 +18,32 @@ export class Avatars {
 
   get(user: LiveUser): Img {
     const hit = this.cache.get(user.id);
-    if (hit) return hit;
-    const tmp = makeInitialAvatar(user.name, this.hue(user));
+    const tmp = hit ?? makeInitialAvatar(user.name, this.hue(user));
     this.cache.set(user.id, tmp);
     const url = user.avatar;
-    if (url && !url.startsWith("demo:") && !this.loading.has(user.id)) {
-      this.loading.add(user.id);
+    if (url && !url.startsWith("demo:") && (this.sources.get(user.id) !== url || Date.now() >= (this.retryAt.get(user.id) ?? Infinity))) {
+      this.sources.set(user.id, url);
+      this.retryAt.delete(user.id);
       const img = new Image();
       img.decoding = "async";
       img.onload = () => {
+        if (this.sources.get(user.id) !== url) return;
         this.cache.set(user.id, circleCrop(img, img.naturalWidth, img.naturalHeight));
-        this.loading.delete(user.id);
+        this.retryAt.delete(user.id);
       };
-      img.onerror = () => this.loading.delete(user.id);
+      img.onerror = () => {
+        if (this.sources.get(user.id) === url) this.retryAt.set(user.id, Date.now() + 30_000);
+      };
       img.src = url;
     }
     // giới hạn bộ nhớ khi live dài
     if (this.cache.size > 1500) {
       const first = this.cache.keys().next().value;
-      if (first !== undefined) this.cache.delete(first);
+      if (first !== undefined) {
+        this.cache.delete(first);
+        this.sources.delete(first);
+        this.retryAt.delete(first);
+      }
     }
     return tmp;
   }
