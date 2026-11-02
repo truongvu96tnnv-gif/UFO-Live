@@ -18,7 +18,6 @@ import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ControlEvent, TikTokLiveConnection, WebcastEvent } from "tiktok-live-connector";
 import { WebSocket, WebSocketServer } from "ws";
-import { PRESENCE_TTL_MS } from "../src/live/events";
 import { sendBossCommand } from "./boss-command";
 import { BOSS_NAMES, isBossId } from "../src/live/boss-catalog";
 import { DEFAULT_CONTROL, parseControl, SimulatedPlayers } from "./control";
@@ -46,12 +45,8 @@ let lastStatus: LiveEvent = { type: "status", state: "idle" };
 const counts: Record<string, number> = {};
 let lastEventAt: string | null = null;
 /** người xem gần đây: trang game mở lại / điện thoại tải lại vẫn thấy ngay bong bóng thay vì phòng trống */
-const recent = new Map<string, { user: LiveUser; at: number }>();
-function pruneRecent() {
-  const cutoff = Date.now() - PRESENCE_TTL_MS;
-  for (const [id, entry] of recent) if (entry.at <= cutoff) recent.delete(id);
-}
-setInterval(pruneRecent, 10_000).unref();
+// Silence is not a leave event. Retain the bounded roster until explicit removal or stream end.
+const recent = new Map<string, LiveUser>();
 const VERBOSE = process.env.LOG !== "0";
 const ICON: Record<string, string> = { join: "👋", like: "❤️", chat: "💬", gift: "🎁", envelope: "📦", follow: "➕", share: "↗" };
 
@@ -77,10 +72,9 @@ function broadcast(e: LiveEvent) {
       counts[e.type] = (counts[e.type] ?? 0) + 1;
       lastEventAt = new Date().toISOString();
     }
-    pruneRecent();
     const previous = recent.get(e.user.id);
     recent.delete(e.user.id);
-    recent.set(e.user.id, { user: { ...e.user, avatar: e.user.avatar || previous?.user.avatar }, at: Date.now() });
+    recent.set(e.user.id, { ...e.user, avatar: e.user.avatar || previous?.avatar });
     if (recent.size > 30) recent.delete(recent.keys().next().value!);
     if (VERBOSE && e.type !== "presence" && !e.user.id.startsWith("sim:")) {
       const extra = e.type === "chat" ? `: ${e.text}` : e.type === "like" ? ` ×${e.count}` : e.type === "gift" ? `: ${e.gift} ×${e.count} (${e.coins} xu)` : e.type === "envelope" ? `: rương ${e.coins} xu` : "";
@@ -94,8 +88,7 @@ function broadcast(e: LiveEvent) {
 wss.on("connection", (ws) => {
   ws.send(JSON.stringify(lastStatus));
   ws.send(JSON.stringify({ type: "control", settings: control }));
-  pruneRecent();
-  const back = [...recent.values()].map(({ user, at }) => ({ type: "presence", user, remainingMs: Math.max(0, PRESENCE_TTL_MS - (Date.now() - at)) }) as LiveEvent);
+  const back = [...recent.values()].map((user) => ({ type: "presence", user }) as LiveEvent);
   if (back.length) ws.send(JSON.stringify(back));
   console.log(`[game] màn hình game kết nối (${wss.clients.size} đang mở)${back.length ? ` — gửi lại ${back.length} người xem gần đây` : ""}`);
 });

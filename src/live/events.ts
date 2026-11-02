@@ -11,8 +11,6 @@ export interface LiveUser {
   avatar?: string;
 }
 
-export const PRESENCE_TTL_MS = 120_000;
-
 export interface ControlSettings {
   simulatedPlayers: number;
   intensity: number;
@@ -24,7 +22,7 @@ export type LiveEvent =
   | { type: "summonBoss"; bossId: BossId; requestId?: string }
   | { type: "control"; settings: ControlSettings }
   | { type: "remove"; ids: string[] }
-  | { type: "presence"; user: LiveUser; remainingMs?: number }
+  | { type: "presence"; user: LiveUser }
   | { type: "join"; user: LiveUser }
   | { type: "like"; user: LiveUser; count: number }
   | { type: "chat"; user: LiveUser; text: string }

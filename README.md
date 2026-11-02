@@ -234,7 +234,7 @@ server/index.ts        bridge TikTok → WebSocket, proxy ảnh, phục vụ dis
 
 ### Thời gian hiển thị người xem
 
-Nhân vật ẩn sau 2 phút không nhận tương tác hoặc cập nhật hiện diện từ TikTok; có tín hiệu mới sẽ hiện lại. Connector không cung cấp sự kiện rời phòng theo từng người đáng tin cậy, nên đây là thời hạn hoạt động, không phải danh sách người đang xem chính xác. Người xem im lặng cũng có thể bị ẩn. Bridge không gửi lại người xem đã hết hạn khi tải lại trang; khi live kết thúc, danh sách nhân vật được xoá, bảng điểm vẫn giữ.
+Nhân vật không bị xoá chỉ vì im lặng hay không thả tim. Connector không cung cấp sự kiện rời phòng theo từng người đáng tin cậy, vì vậy danh sách nhân vật là người đã tham gia, không phải danh sách người đang xem chính xác. Bridge giữ tối đa 30 người gần nhất để gửi lại khi tải trang; game cũng giới hạn 30 nhân vật để giữ hiệu năng, người mới có thể thay người lâu không tương tác khi đầy. Khi live kết thúc, đổi/ngắt kênh hoặc tắt BOT, nhân vật tương ứng được dọn. Bảng điểm vẫn giữ. Khoảng 2 phút hoạt động chỉ dùng để cân bằng độ khó, không dùng làm bằng chứng rời phòng.
 
 ### Màn điều khiển riêng
 

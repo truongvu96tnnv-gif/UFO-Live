@@ -38,7 +38,7 @@ test('protobuf join, chat, likes, follow and share reach the game with user iden
   assert.equal(h.events[2].count, 23);
 });
 
-test('room count includes zero and repeated rankings do not keep inactive viewers alive', async () => {
+test('room count includes zero and repeated rankings do not duplicate presence events', async () => {
   const h = harness();
   const ranks = [message('Contributor', { user })];
   await h.emit('WebcastRoomUserSeqMessage', { total: '100', ranks });

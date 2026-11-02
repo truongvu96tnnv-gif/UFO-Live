@@ -1,5 +1,4 @@
 import { cleanChat, cleanName } from "../live/filter";
-import { PRESENCE_TTL_MS } from "../live/events";
 import type { LiveEvent, LiveUser } from "../live/events";
 import { isBossId } from "../live/boss-catalog";
 import { likeBurst } from "./like-burst";
@@ -78,7 +77,6 @@ interface Person {
   born: number;
   pulse: number;
   seen: number;
-  seenAt: number;
   suck: number; // lúc bắt đầu bị hút (-1 = không)
   say: string;
   sayT: number;
@@ -713,7 +711,6 @@ export class Game {
     this.active.set(user.id, this.time);
     const person = this.ensurePerson(user);
     person.seen = this.time;
-    person.seenAt = Date.now() - (e.type === "presence" ? PRESENCE_TTL_MS - clamp(e.remainingMs ?? PRESENCE_TTL_MS, 0, PRESENCE_TTL_MS) : 0);
     if (e.type === "presence") return;
     person.pulse = 1;
     const fighting = this.phase === "battle" && this.ufoAlive && this.hp > 0;
@@ -942,7 +939,6 @@ export class Game {
       born: this.time,
       pulse: 1,
       seen: this.time,
-      seenAt: Date.now(),
       suck: this.phase === "lose" ? this.time : -1,
       say: "",
       sayT: -99,
@@ -1103,13 +1099,6 @@ export class Game {
   // ================= cập nhật =================
 
   update(dtReal: number) {
-    const cutoff = Date.now() - PRESENCE_TTL_MS;
-    this.people = this.people.filter((p) => {
-      if (p.seenAt > cutoff) return true;
-      this.active.delete(p.user.id);
-      if (this.grab?.p === p) this.grab = null;
-      return false;
-    });
     const dt = dtReal * this.timeScale;
     this.time += dt;
     this.phaseT += dt;
