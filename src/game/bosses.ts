@@ -579,7 +579,7 @@ export interface BossArt {
 export const BOSS_ART: Record<BossId, BossArt> = {
   ufo: { url: artUfo, width: 500, cx: 0.5, cy: 0.5, hitRx: 225, hitRy: 70, hitCy: -5, belly: 95 },
   gold: { url: artGold, width: 560, cx: 0.5, cy: 0.52, hitRx: 240, hitRy: 85, hitCy: 0, belly: 95 },
-  octopus: { url: artOctopus, width: 500, cx: 0.5, cy: 0.42, hitRx: 210, hitRy: 120, hitCy: -40, belly: 45 },
+  octopus: { url: artOctopus, width: 520, cx: 0.509, cy: 0.42, hitRx: 220, hitRy: 120, hitCy: -40, belly: 50 },
   stealth: { url: artStealth, width: 660, cx: 0.5, cy: 0.55, hitRx: 290, hitRy: 55, hitCy: 0, belly: 60 },
   spider: { url: artSpider, width: 470, cx: 0.495, cy: 0.43, hitRx: 200, hitRy: 95, hitCy: -15, belly: 130 },
   crystal: { url: artCrystal, width: 420, cx: 0.5, cy: 0.5, hitRx: 160, hitRy: 190, hitCy: 0, belly: 215 },
@@ -591,8 +591,6 @@ export const BOSS_ART: Record<BossId, BossArt> = {
 // Nhập bằng: tools/import_boss_anim.py <thư-mục-bộ-chuyển-động> <boss-id>. Boss có bộ chuyển động thì game dùng nó
 // thay cho art tĩnh; boss chưa có thì vẫn dùng art tĩnh + hiệu ứng code như cũ.
 import type { AnimMeta } from "./anim";
-import octopusAnimMeta from "../assets/bosses/octopus-anim.json";
-import octopusAnimUrl from "../assets/bosses/octopus-anim.webp";
 
 export interface BossAnimDef {
   url: string;
@@ -604,6 +602,4 @@ export interface BossAnimDef {
   hitCy: number;
 }
 
-export const BOSS_ANIM: Partial<Record<BossId, BossAnimDef>> = {
-  octopus: { url: octopusAnimUrl, meta: octopusAnimMeta as AnimMeta, bodyW: 400, hitAspect: 0.62, hitCy: -20 },
-};
+export const BOSS_ANIM: Partial<Record<BossId, BossAnimDef>> = {};

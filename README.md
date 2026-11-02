@@ -65,7 +65,7 @@ Mỗi kỹ năng có dòng nhắc nhấp nháy trên HUD (vd. `🐙 CỨU AN: 12
 ## Đồ hoạ
 
 - **Trùm** dùng art vẽ tay trong `src/assets/bosses/*.webp`, tách nền từ `art-source/bosses-sheet.webp` bằng `tools/cut_bosses.py` (model BiRefNet + bước làm sạch: bỏ khói/sương/vạch lưới, khử viền màu nền, phóng 2× làm nét).
-- **Bộ chuyển động theo khung** (sprite sheet): boss có bộ chuyển động thì game dùng nó thay art tĩnh — `idle` (lơ lửng), `move` (bay ngang nhanh), `attack` (bắn trả), `hit` (trúng đòn nặng / giãy chết). Đã có: **Bạch Tuộc Vũ Trụ** (16 khung — idle chớp mắt, move bơi nghiêng, attack nheo mắt gom chưởng rồi phóng khi tóm người, hit nhăn mặt). Nhập bộ mới:
+- **Bộ chuyển động theo khung** (sprite sheet): boss có bộ chuyển động thì game dùng nó thay art tĩnh — `idle` (lơ lửng), `move` (bay ngang nhanh), `attack` (bắn trả), `hit` (trúng đòn nặng / giãy chết). Hiện chưa boss nào dùng. Nhập bộ mới:
 
   ```bash
   .venv/bin/python tools/import_boss_anim.py <thư-mục-có-atlas.json> <boss-id>

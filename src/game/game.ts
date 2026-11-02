@@ -2033,9 +2033,9 @@ export class Game {
       }
       case "octopus": {
         const blink = t % 4 < 0.15 ? 0.1 : 1;
-        for (const fx of [0.385, 0.62]) {
+        for (const [fx, fy] of [[0.445, 0.27], [0.652, 0.244]] as const) {
           ctx.globalAlpha = (0.45 + 0.25 * Math.sin(t * 5)) * blink * alpha;
-          const [ex, ey] = at(fx, 0.28);
+          const [ex, ey] = at(fx, fy);
           ctx.drawImage(this.glows[0], ex - 40, ey - 32, 80, 64);
         }
         break;
@@ -2143,7 +2143,7 @@ export class Game {
   }
 
   private octopusWarp(w: number, h: number, t: number) {
-    const ROOT = 0.5;
+    const ROOT = 0.52;
     const swim = Math.sin(t * 1.5);
     const kick = Math.sin(t * 1.5 - 0.9);
     const wild = this.grab ? 1.7 : 1;
