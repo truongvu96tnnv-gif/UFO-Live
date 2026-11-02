@@ -89,7 +89,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? "/", "http://local");
   if (url.pathname === "/avatar") return avatar(url.searchParams.get("u") ?? "", res);
   if (url.pathname === "/emit" && req.method === "POST") return emit(req, res);
-  if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, clients: wss.clients.size, viewers: viewerCount, events: counts, lastEventAt }));
+  if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, roomId: roomIdNow, roomStatus, clients: wss.clients.size, viewers: viewerCount, events: counts, lastEventAt, tiktokPackets: raw, lastPacketAt }));
   if (req.method !== "GET" && req.method !== "HEAD") return void res.writeHead(405).end();
 
   if (!existsSync(DIST)) {
@@ -228,6 +228,14 @@ setInterval(() => {
 
 let conn: TikTokLiveConnection | null = null;
 let viewerCount = 0;
+/** chẩn đoán: phòng đang nối, trạng thái phòng (2 = đang live, 4 = đã kết thúc), mọi gói TikTok gửi về theo loại */
+let roomIdNow: string | null = null;
+let roomStatus: number | null = null;
+const raw: Record<string, number> = {};
+let lastPacketAt: string | null = null;
+let lastPacketMs = 0;
+let connectedMs = 0;
+let watchdogHits = 0;
 let retry = 5000;
 
 async function connectTikTok() {
@@ -243,6 +251,14 @@ async function connectTikTok() {
   // danh sách người xem hàng đầu TikTok gửi định kỳ (kèm số người xem): đưa họ vào thành phố ngay,
   // không cần đợi họ tương tác — người đã ở trong phòng từ trước khi bridge kết nối cũng hiện
   const seeded = new Set<string>();
+  c.on(ControlEvent.DECODED_DATA, (type: string) => {
+    if (conn !== c) return;
+    if (!raw[type]) console.log(`[tiktok] gói đầu tiên loại ${type}`);
+    raw[type] = (raw[type] ?? 0) + 1;
+    watchdogHits = 0;
+    lastPacketMs = Date.now();
+    lastPacketAt = new Date().toISOString();
+  });
   c.on(WebcastEvent.ROOM_USER, (d: Loose) => {
     viewerCount = Number(d.viewerCount) || viewerCount;
     for (const t of (d.topViewers ?? []).slice(0, 20)) {
@@ -295,7 +311,12 @@ async function connectTikTok() {
   try {
     const state: Loose = await c.connect();
     retry = 5000;
-    console.log(`[tiktok] đã kết nối @${USERNAME} (room ${state?.roomId ?? "?"})`);
+    roomIdNow = String(state?.roomId ?? "") || null;
+    roomStatus = Number(state?.roomInfo?.status ?? state?.roomInfo?.data?.status) || null;
+    connectedMs = lastPacketMs = Date.now();
+    const title = state?.roomInfo?.title ?? state?.roomInfo?.data?.title;
+    console.log(`[tiktok] đã kết nối @${USERNAME} (room ${roomIdNow ?? "?"}${roomStatus ? `, trạng thái ${roomStatus === 2 ? "ĐANG LIVE" : roomStatus === 4 ? "ĐÃ KẾT THÚC" : roomStatus}` : ""}${title ? `, "${title}"` : ""})`);
+    if (roomStatus === 4) console.log("[tiktok] ⚠ phòng này đã kết thúc — có thể đang nối vào phiên live cũ, sẽ thử lại");
     broadcast({ type: "status", state: "connected" });
   } catch (err: Loose) {
     const msg = String(err?.message ?? err);
@@ -304,6 +325,20 @@ async function connectTikTok() {
     schedule();
   }
 }
+
+// Canh chừng: đã "connected" mà 45 giây không có gói nào từ TikTok (bình thường vài giây đã có gói) →
+// nhiều khả năng đang nối vào phiên live cũ / kết nối chết → tự nối lại để lấy phòng mới.
+setInterval(() => {
+  if (!conn || lastStatus.type !== "status" || lastStatus.state !== "connected") return;
+  // nối lại liên tục mà vẫn trống thì giãn dần (45s → 90s → … tối đa 3 phút) để khỏi bị TikTok / máy chủ ký chặn
+  if (Date.now() - lastPacketMs > 45_000 * Math.min(4, watchdogHits + 1)) {
+    watchdogHits++;
+    console.log(`[tiktok] ⚠ ${Math.round((Date.now() - connectedMs) / 1000)}s không nhận được gói nào từ TikTok — nối lại`);
+    broadcast({ type: "status", state: "connecting", detail: "không có dữ liệu, đang nối lại" });
+    retry = 5000;
+    void connectTikTok();
+  }
+}, 15_000).unref();
 
 let pending: NodeJS.Timeout | null = null;
 function schedule() {
