@@ -1,4 +1,5 @@
 import { balanceFromQuery } from "./game/balance";
+import type { BossId } from "./game/bosses";
 import { GIFTS } from "./game/gifts";
 import { Game, type Phase } from "./game/game";
 import { H, W } from "./game/stage";
@@ -100,7 +101,13 @@ addEventListener("keydown", (e) => {
 addEventListener("pointerdown", () => game.sfx.unlock());
 // chế độ demo: chạm vào màn hình = thả tim, thanh nút + bảng quà để thử trên điện thoại
 const you: LiveUser = { id: "you", name: "Bạn", avatar: "demo:200" };
-const panel = mountDemoPanel(sink, you, () => game.sfx.unlock());
+// nút "Gọi trùm": đánh ngay trùm kế tiếp trong danh sách để xem model & kỹ năng
+const BOSS_ORDER: BossId[] = ["gold", "octopus", "stealth", "cruiser", "crystal", "mother", "planet"];
+let bossI = -1;
+const panel = mountDemoPanel(sink, you, () => game.sfx.unlock(), () => {
+  bossI = (bossI + 1) % BOSS_ORDER.length;
+  game.debugBoss(BOSS_ORDER[bossI]);
+});
 panel.show(game.demo);
 canvas.addEventListener("pointerdown", () => {
   if (game.demo) sink({ type: "like", user: you, count: 5 });

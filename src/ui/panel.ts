@@ -45,7 +45,7 @@ const CSS = `
 @media (max-width: 360px) { #ufo-gifts .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 `;
 
-export function mountDemoPanel(sink: EventSink, user: LiveUser, unlock: () => void) {
+export function mountDemoPanel(sink: EventSink, user: LiveUser, unlock: () => void, onBoss?: () => void) {
   const style = document.createElement("style");
   style.textContent = CSS;
   document.head.appendChild(style);
@@ -60,6 +60,7 @@ export function mountDemoPanel(sink: EventSink, user: LiveUser, unlock: () => vo
     ["envelope", "📦 Rương xu", "gold"],
     ["follow", "➕ Follow"],
     ["share", "↗ Chia sẻ"],
+    ["boss", "☠ Gọi trùm", "gold"],
   ];
   for (const [ev, label, cls] of buttons) {
     const b = document.createElement("button");
@@ -107,6 +108,9 @@ export function mountDemoPanel(sink: EventSink, user: LiveUser, unlock: () => vo
         return sink({ type: "follow", user });
       case "share":
         return sink({ type: "share", user });
+      case "boss":
+        onBoss?.();
+        return;
     }
   });
   sheet.querySelector("#ufo-gifts-close")!.addEventListener("click", () => (sheet.hidden = true));
