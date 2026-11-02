@@ -15,7 +15,15 @@ function syncForm(data) {
   $('music').checked = data.settings.music;
 }
 function render(data) {
+  const autoStopped = data.botAutoStopped && (!lastSnapshot?.botAutoStopped || lastSnapshot.settings.simulatedPlayers > 0);
   lastSnapshot = data;
+  $('botRule').textContent = data.botAutoStopped
+    ? 'BOT đã tự tắt vì vượt 20 người xem thật. Khi còn tối đa 20 người xem, bạn có thể bật lại bằng tay.'
+    : 'BOT tự tắt khi số người xem TikTok vượt 20; không tự bật lại.';
+  if (autoStopped || data.viewers > 20) {
+    $('playerCount').value = 0;
+    $('countLabel').value = 0;
+  }
   $('viewers').textContent = data.viewers;
   $('clients').textContent = data.clients;
   $('bots').textContent = data.settings.simulatedPlayers;

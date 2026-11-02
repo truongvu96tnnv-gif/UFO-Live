@@ -240,6 +240,8 @@ Nhân vật ẩn sau 2 phút không nhận tương tác hoặc cập nhật hi�
 
 Mở `http://localhost:8787/control` trong trình duyệt riêng; OBS vẫn dùng `http://localhost:8787/` (không thêm `?demo=1`). Trang điều khiển cho phép kết nối/đổi kênh TikTok, ngắt kết nối, theo dõi người xem và tương tác thật, bật/tắt âm thanh và nhạc nền.
 
-Có thể thêm 0–20 **BOT mô phỏng**, chọn 3 nhịp tương tác và tắt toàn bộ BOT ngay. Mô phỏng chạy tập trung tại bridge nên mở nhiều màn hình không làm nhân đôi số sự kiện. BOT có tên và nhãn mô phỏng trên game, chỉ tạo tim (không giả lập quà trả phí), không được cộng vào số người xem hoặc thống kê tương tác TikTok. BOT tham gia chiến đấu trong game; bảng điểm có thể chứa tên BOT. Thiết lập áp dụng cho các màn hình đang kết nối và được gửi lại khi tải trang; khởi động lại bridge sẽ tắt mô phỏng.
+Có thể thêm 0–20 **BOT mô phỏng**, chọn 3 nhịp tương tác và tắt toàn bộ BOT ngay. Mô phỏng chạy tập trung tại bridge nên mở nhiều màn hình không làm nhân đôi số sự kiện. BOT có tên và nhãn mô phỏng trên game, có nhịp tim riêng, bình luận ngắn và khoảng nghỉ (không giả lập quà trả phí), không được cộng vào số người xem hoặc thống kê tương tác TikTok. BOT tham gia chiến đấu trong game; bảng điểm có thể chứa tên BOT. Thiết lập áp dụng cho các màn hình đang kết nối và được gửi lại khi tải trang; khởi động lại bridge sẽ tắt mô phỏng.
 
 Mỗi gói tim tạo tối đa 12 tia laser, phát đầu ngay và cách nhau 45 ms, tổng sát thương bằng số tim × sát thương mỗi tim. App không thể loại bỏ độ trễ trước khi TikTok gửi gói sự kiện.
+
+BOT tự tắt khi số người xem thật TikTok báo về **vượt 20** (20 vẫn được bật, 21 trở lên sẽ tắt). Khi người xem giảm, BOT không tự bật lại; có thể bật thủ công khi còn tối đa 20 người xem. Thời điểm tắt phụ thuộc lúc TikTok gửi cập nhật số người xem.

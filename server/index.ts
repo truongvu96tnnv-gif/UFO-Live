@@ -54,7 +54,12 @@ const VERBOSE = process.env.LOG !== "0";
 const ICON: Record<string, string> = { join: "👋", like: "❤️", chat: "💬", gift: "🎁", envelope: "📦", follow: "➕", share: "↗" };
 
 let control = { ...DEFAULT_CONTROL };
-const simulation = new SimulatedPlayers(broadcast);
+let botAutoStopped = false;
+const simulation = new SimulatedPlayers(broadcast, () => {
+  control = { ...control, simulatedPlayers: 0 };
+  botAutoStopped = true;
+  broadcast({ type: "control", settings: control });
+});
 setInterval(() => simulation.tick(0.1), 100).unref();
 
 function broadcast(e: LiveEvent) {
@@ -233,7 +238,7 @@ async function connectTikTok() {
   if (attempt !== generation) return;
   const c = new TikTokLiveConnection(USERNAME, { signApiKey: SIGN_API_KEY, enableExtendedGiftInfo: false });
   conn = c;
-  bindLiveEvents(c, broadcast, (count) => { viewerCount = count; });
+  bindLiveEvents(c, broadcast, (count) => { viewerCount = count; simulation.observeViewers(count); });
   c.on(WebcastEvent.STREAM_END, () => {
     broadcast({ type: "status", state: "offline", detail: "live đã kết thúc" });
     schedule();
@@ -282,7 +287,7 @@ server.listen(PORT, HOST, () => {
 
 async function controlRoute(req: IncomingMessage, res: ServerResponse) {
   const respond = (code: number, data: unknown) => res.writeHead(code, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(data));
-  const snapshot = () => ({ settings: control, username: USERNAME, status: lastStatus, viewers: viewerCount, clients: wss.clients.size, events: counts, lastEventAt });
+  const snapshot = () => ({ settings: control, username: USERNAME, status: lastStatus, viewers: viewerCount, clients: wss.clients.size, events: counts, lastEventAt, botAutoStopped });
   if (req.method === "GET") return void respond(200, snapshot());
   if (req.method !== "POST") return void respond(405, { error: "Method not allowed" });
   if (!req.headers["content-type"]?.startsWith("application/json")) return void respond(415, { error: "JSON required" });
@@ -295,9 +300,11 @@ async function controlRoute(req: IncomingMessage, res: ServerResponse) {
   try {
     const data = JSON.parse(body);
     if (data.action === "settings") {
-      control = parseControl(data.settings, control);
+      const next = parseControl(data.settings, control);
+      simulation.configure(next.simulatedPlayers, next.intensity);
+      control = next;
+      if (control.simulatedPlayers > 0) botAutoStopped = false;
       broadcast({ type: "control", settings: control });
-      simulation.configure(control.simulatedPlayers, control.intensity);
     } else if (data.action === "connect") {
       if (typeof data.username !== "string" || !/^@?[a-zA-Z0-9_.]{1,64}$/.test(data.username.trim())) throw new Error("Nhập username TikTok, không nhập đường dẫn");
       USERNAME = data.username.trim().replace(/^@/, "");
@@ -306,6 +313,7 @@ async function controlRoute(req: IncomingMessage, res: ServerResponse) {
       retry = 5000;
       broadcast({ type: "remove", ids: [...recent.keys()].filter(id => !id.startsWith("sim:")) });
       viewerCount = 0;
+      simulation.observeViewers(0);
       void connectTikTok();
     } else if (data.action === "disconnect") {
       USERNAME = "";
@@ -317,6 +325,7 @@ async function controlRoute(req: IncomingMessage, res: ServerResponse) {
       old?.removeAllListeners();
       await old?.disconnect();
       viewerCount = 0;
+      simulation.observeViewers(0);
       broadcast({ type: "remove", ids: [...recent.keys()].filter(id => !id.startsWith("sim:")) });
       broadcast({ type: "status", state: "idle", detail: "đã ngắt kết nối" });
     } else throw new Error("Lệnh không hợp lệ");

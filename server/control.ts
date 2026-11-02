@@ -20,32 +20,57 @@ export function parseControl(raw: unknown, current: ControlSettings): ControlSet
   return next;
 }
 
-/** One simulation source on the bridge, shared by every game display. No simulated paid gifts. */
+export const BOT_VIEWER_LIMIT = 20;
+const BOT_NAMES = ["An", "Linh", "Minh", "Hà", "Nam", "Vy", "Khoa", "Mai", "Huy", "Ngọc", "Bảo", "Thảo", "Long", "Nhi", "Phúc", "Chi", "Quân", "My", "Đạt", "Yến"];
+const BOT_CHATS = ["bắn nào!", "cố lên cả đội", "bảo vệ trái đất", "cùng bắn nhé", "UFO tới rồi", "thêm một loạt nữa", "giữ vững nào", "lên nào!"];
+
+/** Independent rhythms, pauses and short chats; all players remain labelled simulations. */
 export class SimulatedPlayers {
-  private users: LiveUser[] = [];
-  private elapsed = 0;
-  private cursor = 0;
+  private users: { user: LiveUser; nextAt: number; pace: number; chatIndex: number }[] = [];
+  private time = 0;
   private intensity = 1;
-  constructor(private emit: (event: LiveEvent) => void) {}
+  private viewers = 0;
+  constructor(
+    private emit: (event: LiveEvent) => void,
+    private onAutoStop: () => void = () => {},
+    private random: () => number = Math.random,
+  ) {}
+
+  observeViewers(count: number) {
+    if (!Number.isFinite(count) || count < 0) return;
+    this.viewers = count;
+    if (count > BOT_VIEWER_LIMIT && this.users.length) {
+      this.configure(0, this.intensity);
+      this.onAutoStop();
+    }
+  }
+
   configure(count: number, intensity: number) {
+    if (count > 0 && this.viewers > BOT_VIEWER_LIMIT) throw new Error("Đang có hơn 20 người xem thật: BOT đã bị tắt");
     this.intensity = intensity;
-    if (count < this.users.length) this.emit({ type: "remove", ids: this.users.slice(count).map(u => u.id) });
+    if (count < this.users.length) this.emit({ type: "remove", ids: this.users.slice(count).map(p => p.user.id) });
     this.users.length = Math.min(count, this.users.length);
     while (this.users.length < count) {
       const n = this.users.length + 1;
-      const user = { id: `sim:${n}`, name: `BOT ${n} · mô phỏng`, avatar: `demo:${n * 47 % 360}` };
-      this.users.push(user);
+      const user = { id: `sim:${n}`, name: `${BOT_NAMES[n - 1]} · BOT`, avatar: `demo:${n * 47 % 360}` };
+      this.users.push({ user, nextAt: this.time + 0.2 + this.random() * 2.8, pace: 0.7 + this.random() * 0.8, chatIndex: n % BOT_CHATS.length });
       this.emit({ type: "join", user });
     }
-    this.elapsed = 0;
   }
+
   tick(dt: number) {
-    if (!this.users.length) return;
-    this.elapsed += dt;
+    // Never replay a backlog of synthetic interactions after the server stalls.
+    this.time += Math.max(0, Math.min(0.5, dt));
     const interval = [0, 0.8, 0.4, 0.2][this.intensity];
-    if (this.elapsed < interval) return;
-    this.elapsed %= interval;
-    const user = this.users[this.cursor++ % this.users.length];
-    this.emit({ type: "like", user, count: this.intensity * 2 });
+    for (const player of this.users) {
+      if (this.time < player.nextAt) continue;
+      if (this.random() < 0.12) {
+        this.emit({ type: "chat", user: player.user, text: BOT_CHATS[player.chatIndex++ % BOT_CHATS.length] });
+      } else {
+        this.emit({ type: "like", user: player.user, count: 1 + Math.floor(this.random() * (this.intensity * 3)) });
+      }
+      const pause = this.random() < 0.15 ? 3 + this.random() * 5 : 0;
+      player.nextAt = this.time + Math.max(0.3, this.users.length * interval * player.pace * (0.5 + this.random())) + pause;
+    }
   }
 }
