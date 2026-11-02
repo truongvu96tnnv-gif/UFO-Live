@@ -62,6 +62,13 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 
 Mỗi kỹ năng có dòng nhắc nhấp nháy trên HUD (vd. `🐙 CỨU AN: 120/399 · còn 4s`) để chủ phòng hô hào cả phòng.
 
+## Đồ hoạ
+
+- **Trùm** dùng art vẽ tay trong `src/assets/bosses/*.webp`, tách nền từ `art-source/bosses-sheet.webp` bằng `tools/cut_bosses.py`. Mỗi trùm có lớp hiệu ứng động riêng vẽ chồng lên art: mắt bạch tuộc sáng/chớp, nhiễu sóng khi tàu tàng hình, lõi tinh thể đập + vòng phù văn + khiên, dung nham phập phồng & lõi sạc pháo của hành tinh, đèn khoang phi thuyền mẹ, chớp nòng chiến hạm. Ảnh chưa tải được thì tự dùng model vẽ bằng code.
+- **Khung cảnh** (`src/game/scene.ts`): mây trôi quanh UFO, khói phủ mái nhà, đám cháy trên mái, 4 tháp pháo phòng không xoay nòng theo UFO và bắn đạn vạch đường (càng nhiều người bắn, tháp pháo bắn càng dày), tàn lửa bay lên. Thuần trang trí, không gây sát thương.
+- **Font** Chakra Petch (đủ dấu tiếng Việt), đóng gói sẵn.
+- `npm run build:embed` → `dist-embed/ufo-live.html`: 1 file duy nhất đã nhúng ảnh & font, mở trực tiếp bằng trình duyệt (thêm `?demo=1`).
+
 ## Chạy thử (không cần lên live)
 
 Yêu cầu Node.js ≥ 22.
@@ -139,7 +146,11 @@ src/game/game.ts       toàn bộ luật chơi + vẽ (intro / battle / win / lo
 src/game/sprites.ts    đĩa bay, bong bóng, nền thành phố (vẽ bằng code)
 src/game/balance.ts    bảng cân bằng (máu, sát thương, quỹ phòng thủ)
 src/game/gifts.ts      danh mục quà → vũ khí, trần sát thương
-src/game/bosses.ts     danh sách trùm, mốc chuỗi thắng, model vẽ bằng code
+src/game/bosses.ts     danh sách trùm, mốc chuỗi thắng, model vẽ bằng code + bảng art (BOSS_ART)
+src/game/scene.ts      mây khói, tháp pháo phòng không, đám cháy, tàn lửa
+src/assets/bosses/     art trùm đã tách nền (webp)
+art-source/            ảnh gốc của bộ asset
+tools/cut_bosses.py    script tách art trùm
 src/game/avatars.ts    ảnh đại diện tròn (tải qua /avatar)
 src/game/sfx.ts        âm thanh tổng hợp WebAudio
 src/live/              kiểu sự kiện, WebSocket client, người xem giả lập

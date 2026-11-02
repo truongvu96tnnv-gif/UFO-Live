@@ -57,6 +57,9 @@ const MIME: Record<string, string> = {
   ".png": "image/png",
   ".json": "application/json",
   ".ico": "image/x-icon",
+  ".webp": "image/webp",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
 };
 
 async function route(req: IncomingMessage, res: ServerResponse) {

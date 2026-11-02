@@ -2,7 +2,8 @@ import type { LiveEvent, LiveUser } from "../live/events";
 import { Avatars } from "./avatars";
 import type { Balance } from "./balance";
 import { font } from "./font";
-import { BOSSES, isMilestone, milestoneBoss, nextMilestone, PLANET_EYE, RANDOM_BOSSES, makeBossSprite, type BossDef, type BossId } from "./bosses";
+import { Scene } from "./scene";
+import { BOSS_ART, BOSSES, isMilestone, milestoneBoss, nextMilestone, PLANET_EYE, RANDOM_BOSSES, makeBossSprite, type BossDef, type BossId } from "./bosses";
 import { resolveGift, WEAPON_CAP, WEAPON_LABEL } from "./gifts";
 import { approach, clamp, easeInOutCubic, easeOutBack, lerp, pick, rand } from "./math";
 import { Sfx } from "./sfx";
@@ -220,9 +221,10 @@ export class Game {
   private bg: Img;
   private towers: Tower[];
   private sprites = new Map<BossId, Img>();
+  private scene: Scene;
   private bubbleFx = [205, 320, 40, 150].map(makeBubble);
-  /** 0 vàng · 1 đỏ cam · 2 trắng xanh · 3 sao · 4 xanh lá (tia hút) */
-  private glows = [makeGlow(255, 200, 90), makeGlow(255, 90, 50), makeGlow(200, 230, 255), makeStar(), makeGlow(120, 255, 160)];
+  /** 0 vàng · 1 đỏ cam · 2 trắng xanh · 3 sao · 4 xanh lá (tia hút) · 5 tím · 6 xanh lơ */
+  private glows = [makeGlow(255, 200, 90), makeGlow(255, 90, 50), makeGlow(200, 230, 255), makeStar(), makeGlow(120, 255, 160), makeGlow(200, 110, 255), makeGlow(90, 220, 255)];
   readonly avatars = new Avatars();
   readonly sfx = new Sfx();
 
@@ -319,7 +321,9 @@ export class Game {
     const bg = makeBackground();
     this.bg = bg.img;
     this.towers = bg.towers;
+    this.scene = new Scene(this.towers, this.glows);
     this.load();
+    this.loadArts();
   }
 
   get boss() {
@@ -337,7 +341,34 @@ export class Game {
 
   /** khoảng cách tâm → bụng (px màn hình) */
   private get belly() {
-    return this.bossDef.bellyY * this.sc;
+    return this.geo.belly;
+  }
+
+  /** ảnh art của trùm (nếu đã tải xong) */
+  private arts = new Map<BossId, HTMLImageElement>();
+
+  private loadArts() {
+    for (const id of Object.keys(BOSS_ART) as BossId[]) {
+      const img = new Image();
+      img.decoding = "async";
+      img.onload = () => this.arts.set(id, img);
+      img.src = BOSS_ART[id].url;
+    }
+  }
+
+  private art(id: BossId = this.bossDef.id) {
+    return this.arts.get(id) ?? null;
+  }
+
+  /** hình học trúng đạn / bụng của model đang dùng (px sân khấu, so với tâm) */
+  private get geo() {
+    if (this.art()) {
+      const a = BOSS_ART[this.bossDef.id];
+      return { rx: a.hitRx, ry: a.hitRy, cy: a.hitCy, belly: a.belly };
+    }
+    const d = this.bossDef;
+    const s = d.scale;
+    return { rx: d.hitRx * s, ry: d.hitRy * s, cy: d.hitCy * s, belly: d.bellyY * s };
   }
 
   private sprite(id: BossId) {
@@ -803,8 +834,8 @@ export class Game {
       user,
       sx,
       sy,
-      ox: rand(-0.7, 0.7) * this.bossDef.hitRx * this.sc,
-      oy: (this.bossDef.hitCy + rand(-0.5, 0.6) * this.bossDef.hitRy) * this.sc,
+      ox: rand(-0.7, 0.7) * this.geo.rx,
+      oy: this.geo.cy + rand(-0.5, 0.6) * this.geo.ry,
       t0: this.time + delay,
       dur: kind === "laser" ? 0.12 : kind === "bill" ? rand(0.55, 0.75) : kind === "heart" ? rand(0.7, 0.9) : kind === "rocket" ? rand(0.85, 1.15) : kind === "heavy" ? 1.3 : 1.45,
       dmg,
@@ -818,6 +849,7 @@ export class Game {
       // Phi Thuyền Mẹ: gần nửa số đạn tự nhắm UFO con đang lao xuống
       drone: this.drones.length && kind !== "mega" && Math.random() < 0.45 ? pick(this.drones.filter((d) => !d.dead)) ?? null : null,
     });
+    this.scene.pulse(kind === "laser" ? 0.6 : 1);
     if (kind === "laser" || kind === "heart" || kind === "bill") this.sfx.laser();
     else this.sfx.launch();
   }
@@ -915,6 +947,8 @@ export class Game {
 
     this.updateShots(dt);
     this.updateFx(dt);
+    const geo = this.geo;
+    this.scene.update(dt, { x: this.ux, y: this.uy + geo.cy, rx: geo.rx, ry: geo.ry, alive: this.ufoAlive && this.uy > 0, fighting: this.phase === "battle" });
     for (const p of this.people) p.pulse = Math.max(0, p.pulse - dt * 2.5);
   }
 
@@ -942,7 +976,7 @@ export class Game {
     const tx = CX + sway * Math.sin(this.time * 0.55) + 50 * Math.sin(this.time * 1.7);
     const ty = lerp(UFO_START_Y, UFO_LAND_Y, this.progress) + Math.sin(this.time * 1.3) * 10 - this.kick;
     // trùm to (Phi Thuyền Mẹ…) lượn hẹp lại để không tràn khỏi màn hình
-    const half = this.bossDef.hitRx * this.sc + 20;
+    const half = this.geo.rx + 20;
     this.moveUfo(clamp(tx, Math.min(CX, half), Math.max(CX, W - half)), ty, 3, dt);
     // gần đất: tia hút chập chờn doạ người xem
     if (this.progress > 0.55) {
@@ -956,7 +990,7 @@ export class Game {
     // UFO hư hại → bốc khói, cháy
     const hpk = this.hp / this.hpMax;
     if (hpk < 0.6 && Math.random() < dt * (hpk < 0.3 ? 30 : 12)) {
-      this.smoke.push({ x: this.ux + rand(-0.5, 0.5) * this.bossDef.hitRx * this.sc, y: this.uy + rand(-20, 10), vx: rand(-20, 20), vy: rand(-90, -40), life: 0, max: rand(1.2, 2), size: rand(14, 26) });
+      this.smoke.push({ x: this.ux + rand(-0.5, 0.5) * this.geo.rx, y: this.uy + rand(-20, 10), vx: rand(-20, 20), vy: rand(-90, -40), life: 0, max: rand(1.2, 2), size: rand(14, 26) });
     }
     for (const c of this.beams) {
       const u = (this.time - c.t0) / c.dur;
@@ -980,8 +1014,8 @@ export class Game {
       this.moveUfo(this.ux, this.uy, 1, dt);
       this.shake = Math.max(this.shake, 8);
       if (Math.random() < dt * 14) {
-        const x = this.ux + rand(-0.75, 0.75) * this.bossDef.hitRx * this.sc;
-        const y = this.uy + (this.bossDef.hitCy + rand(-0.6, 0.6) * this.bossDef.hitRy) * this.sc;
+        const x = this.ux + rand(-0.75, 0.75) * this.geo.rx;
+        const y = this.uy + this.geo.cy + rand(-0.6, 0.6) * this.geo.ry;
         this.blasts.push({ x, y, t: this.time, color: pick(FIREWORK), size: rand(60, 110) });
         this.sparks(x, y, 8, 500);
         this.sfx.hit();
@@ -993,7 +1027,7 @@ export class Game {
       this.flash = 1;
       this.shake = 30;
       this.sfx.boom();
-      const big = clamp((this.bossDef.hitRx * this.sc) / 230, 1, 2.2);
+      const big = clamp((this.geo.rx) / 230, 1, 2.2);
       this.blasts.push({ x: this.ux, y: this.uy, t: this.time, color: "#ffffff", size: 420 * big });
       if (this.boss) for (let i = 0; i < 4; i++) this.firework(this.ux + rand(-200, 200), this.uy + rand(-120, 120), this.bossDef.color, 70);
       for (let i = 0; i < 3; i++) this.firework(this.ux + rand(-60, 60), this.uy + rand(-30, 30), FIREWORK[i], 90);
@@ -1001,7 +1035,7 @@ export class Game {
       for (let i = 0; i < 46; i++) {
         const a = rand(0, Math.PI * 2);
         const v = rand(200, 900);
-        this.debris.push({ x: this.ux + rand(-0.5, 0.5) * this.bossDef.hitRx * this.sc, y: this.uy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 300, rot: rand(0, 6), vr: rand(-12, 12), w: rand(8, 34), h: rand(4, 14), life: rand(2, 3.5) });
+        this.debris.push({ x: this.ux + rand(-0.5, 0.5) * this.geo.rx, y: this.uy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 300, rot: rand(0, 6), vr: rand(-12, 12), w: rand(8, 34), h: rand(4, 14), life: rand(2, 3.5) });
       }
     }
     if (this.at("cheer", 1.8)) this.sfx.win();
@@ -1073,6 +1107,7 @@ export class Game {
             for (let i = 0; i < 70; i++) this.confetti.push({ x, y, vx: rand(-600, 600), vy: rand(-700, 100), rot: rand(0, 6), vr: rand(-12, 12), color: pick(CONFETTI), life: rand(1.5, 2.6) });
           }
           this.blasts.push({ x, y, t: this.time, color: s.color, size: big ? 200 : 90 });
+          for (let i = 0; i < (big ? 6 : 2); i++) this.smoke.push({ x: x + rand(-20, 20), y: y + rand(-14, 14), vx: rand(-30, 30), vy: rand(-50, -10), life: 0, max: rand(0.9, 1.6), size: rand(12, big ? 34 : 20) });
           this.sparks(x, y, big ? 30 : 8, big ? 800 : 420);
           if (big) this.firework(x, y, s.color, 40);
           this.sfx.hit(big);
@@ -1187,6 +1222,7 @@ export class Game {
     if (this.shake > 0.3) ctx.translate(rand(-1, 1) * this.shake, rand(-1, 1) * this.shake);
     ctx.drawImage(this.bg, 0, 0);
     this.drawTowerLights(ctx);
+    this.scene.drawBack(ctx);
 
     const back = this.people.filter((p) => p.z < 0.85);
     const front = this.people.filter((p) => p.z >= 0.85);
@@ -1207,6 +1243,7 @@ export class Game {
     this.drawCrates(ctx);
     this.drawShots(ctx, true);
     this.drawFx(ctx);
+    this.scene.drawFront(ctx);
     ctx.restore();
 
     this.drawAlarm(ctx);
@@ -1412,6 +1449,7 @@ export class Game {
   }
 
   private eyePos(): [number, number] {
+    if (this.art()) return [this.ux, this.uy];
     return [this.ux + PLANET_EYE.x * this.sc, this.uy + PLANET_EYE.y * this.sc];
   }
 
@@ -1459,7 +1497,7 @@ export class Game {
           const cand = this.freePeople();
           for (let i = 0; i < 3 && cand.length; i++) {
             const p = cand.splice((Math.random() * cand.length) | 0, 1)[0];
-            this.bolts.push({ p, t0: now + i * 0.18, x0: this.ux + rand(-0.6, 0.6) * d.hitRx * this.sc, y0: this.uy - 30 });
+            this.bolts.push({ p, t0: now + i * 0.18, x0: this.ux + rand(-0.6, 0.6) * this.geo.rx, y0: this.uy - 30 });
           }
           this.muzzle = 1;
           this.sfx.launch();
@@ -1488,7 +1526,7 @@ export class Game {
           this.abilityT = now + 7;
           const alive = this.drones.filter((x) => !x.dead).length;
           for (let i = 0; i < Math.min(2, 6 - alive); i++) {
-            const x0 = this.ux + rand(-0.5, 0.5) * d.hitRx * this.sc;
+            const x0 = this.ux + rand(-0.5, 0.5) * this.geo.rx;
             const y0 = this.uy + this.belly;
             const max = Math.max(20, Math.round(this.hpMax * 0.02));
             this.drones.push({ x: x0, y: y0, x0, y0, tx: rand(120, W - 120), t0: now + i * 0.5, hp: max, max, dead: false });
@@ -1588,6 +1626,11 @@ export class Game {
 
   private drawUfo(ctx: CanvasRenderingContext2D) {
     const d = this.bossDef;
+    const art = this.art();
+    if (art) {
+      this.drawArt(ctx, art);
+      return;
+    }
     if (d.id === "ufo" || d.id === "gold") {
       this.drawSaucer(ctx);
       return;
@@ -1747,6 +1790,173 @@ export class Game {
     ctx.restore();
   }
 
+  /** Vẽ trùm bằng art vẽ tay + lớp hiệu ứng động hợp với từng trùm */
+  private drawArt(ctx: CanvasRenderingContext2D, img: HTMLImageElement) {
+    const d = this.bossDef;
+    const a = BOSS_ART[d.id];
+    const g = this.geo;
+    const t = this.time;
+    const w = a.width;
+    const h = (w * img.naturalHeight) / img.naturalWidth;
+    const ox = -w * a.cx;
+    const oy = -h * a.cy;
+    const at = (fx: number, fy: number): [number, number] => [ox + w * fx, oy + h * fy];
+    const danger = this.phase === "battle" && this.progress > 0.75;
+    const alpha = 1 - 0.85 * this.cloak;
+    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, cruiser: 1, crystal: 6, mother: 0, planet: 1 };
+    ctx.save();
+    ctx.translate(this.ux, this.uy + Math.sin(t * 1.6) * 4);
+    ctx.rotate(this.tilt * 0.6);
+    ctx.imageSmoothingQuality = "high";
+    // hào quang sau lưng (trùm mốc rực hơn)
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = (d.kind === "milestone" ? 0.38 : 0.22) * alpha + 0.08 * Math.sin(t * 3);
+    ctx.drawImage(this.glows[AURA[d.id]], -w * 0.62, g.cy - h * 0.55, w * 1.24, h * 1.1);
+    // ánh sáng hắt dưới bụng đĩa
+    if (d.id === "ufo" || d.id === "gold" || d.id === "mother") {
+      ctx.globalAlpha = 0.55 + 0.25 * Math.sin(t * 5);
+      ctx.drawImage(this.glows[d.id === "gold" ? 0 : danger ? 1 : 4], -w * 0.28, g.belly - 50, w * 0.56, 90);
+    }
+    ctx.restore();
+
+    // thân: tàng hình thì nhiễu sóng thành từng lát lệch ngang
+    ctx.globalAlpha = alpha;
+    if (this.cloak > 0.05) {
+      const n = 10;
+      for (let i = 0; i < n; i++) {
+        const jx = (Math.random() - 0.5) * 40 * this.cloak;
+        ctx.drawImage(img, 0, (img.naturalHeight * i) / n, img.naturalWidth, img.naturalHeight / n, ox + jx, oy + (h * i) / n, w, h / n);
+      }
+    } else ctx.drawImage(img, ox, oy, w, h);
+    ctx.globalCompositeOperation = "lighter";
+    if (this.hitFlash > 0.02) {
+      ctx.globalAlpha = this.hitFlash * 0.32 * alpha;
+      ctx.drawImage(img, ox, oy, w, h);
+    }
+    ctx.globalAlpha = alpha;
+    switch (d.id) {
+      case "ufo": {
+        // vành đèn đỏ thở theo nhịp, gần đất thì nháy gấp
+        ctx.globalAlpha = (danger ? 0.5 + 0.5 * Math.sin(t * 14) : 0.35 + 0.25 * Math.sin(t * 3)) * alpha;
+        const [bx, by] = at(0.5, 0.72);
+        ctx.drawImage(this.glows[1], bx - w * 0.42, by - 26, w * 0.84, 52);
+        break;
+      }
+      case "gold": {
+        // lấp lánh trên gai vàng
+        for (let i = 0; i < 3; i++) {
+          const k = Math.floor(t * 2 + i * 7.3);
+          const fx = 0.12 + ((k * 37) % 76) / 100;
+          const fy = 0.08 + ((k * 53) % 70) / 100;
+          ctx.globalAlpha = Math.max(0, Math.sin((t * 2 + i * 0.33) % 1 * Math.PI)) * alpha;
+          const [sx, sy] = at(fx, fy);
+          ctx.drawImage(this.glows[3], sx - 24, sy - 24, 48, 48);
+        }
+        break;
+      }
+      case "octopus": {
+        const blink = t % 4 < 0.15 ? 0.1 : 1;
+        for (const fx of [0.385, 0.62]) {
+          ctx.globalAlpha = (0.45 + 0.25 * Math.sin(t * 5)) * blink * alpha;
+          const [ex, ey] = at(fx, 0.31);
+          ctx.drawImage(this.glows[0], ex - 40, ey - 32, 80, 64);
+        }
+        break;
+      }
+      case "stealth": {
+        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 6);
+        const [ex, ey] = at(0.5, 0.56);
+        ctx.drawImage(this.glows[1], ex - 70, ey - 34, 140, 68);
+        break;
+      }
+      case "cruiser": {
+        const [ex, ey] = at(0.04, 0.42);
+        ctx.globalAlpha = 0.7 + Math.random() * 0.3;
+        ctx.drawImage(this.glows[0], ex - 90, ey - 40, 120, 80);
+        if (this.muzzle > 0) {
+          ctx.globalAlpha = this.muzzle;
+          for (const fx of [0.27, 0.34, 0.55, 0.63]) {
+            const [mx, my] = at(fx, 0.14);
+            ctx.drawImage(this.glows[1], mx - 40, my - 40, 80, 80);
+          }
+        }
+        break;
+      }
+      case "crystal": {
+        ctx.globalAlpha = 0.45 + 0.3 * Math.sin(t * 3);
+        ctx.drawImage(this.glows[6], -150, -150, 300, 300);
+        ctx.globalAlpha = 1;
+        ctx.save();
+        ctx.scale(0.8, 0.8);
+        this.drawCrystalRings(ctx, true);
+        ctx.restore();
+        if (this.shieldHp > 0) {
+          const k = this.shieldHp / Math.max(1, this.shieldMax);
+          const R = 270;
+          ctx.strokeStyle = `rgba(127,240,255,${0.35 + 0.4 * k})`;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(0, 0, R, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 0.15 + 0.2 * k;
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 12; i++) {
+            const an = (i / 12) * Math.PI * 2 + t * 0.3;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, R * Math.abs(Math.cos(an)), R, 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+        break;
+      }
+      case "mother": {
+        for (let i = 0; i < 5; i++) {
+          ctx.globalAlpha = (0.5 + 0.5 * Math.sin(t * 3 + i)) * alpha;
+          const [hx, hy] = at(0.32 + i * 0.09, 0.66);
+          ctx.drawImage(this.glows[0], hx - 26, hy - 14, 52, 28);
+        }
+        ctx.globalAlpha = Math.sin(t * 4) > 0 ? 1 : 0.2;
+        for (const fx of [0.29, 0.71]) {
+          const [tx, ty] = at(fx, 0.05);
+          ctx.drawImage(this.glows[1], tx - 16, ty - 16, 32, 32);
+        }
+        break;
+      }
+      case "planet": {
+        // dung nham phập phồng; sạc pháo thì lõi rực trắng & vòng năng lượng co vào tâm
+        ctx.globalAlpha = 0.12 + 0.12 * Math.sin(t * 2.2);
+        ctx.drawImage(img, ox, oy, w, h);
+        const ck = this.charge ? clamp((t - this.charge.t0) / 5, 0, 1) : 0;
+        if (ck > 0) {
+          ctx.globalAlpha = 0.5 + 0.5 * ck;
+          const s = 120 + 220 * ck;
+          ctx.drawImage(this.glows[1], -s, -s, s * 2, s * 2);
+          ctx.drawImage(this.glows[2], -s * 0.4, -s * 0.4, s * 0.8, s * 0.8);
+          for (let i = 0; i < 4; i++) {
+            const f = 1 - ((t * 1.4 + i / 4) % 1);
+            ctx.globalAlpha = (1 - f) * 0.9;
+            ctx.strokeStyle = "#ff5a5a";
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(0, 0, 60 + f * 280, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+        break;
+      }
+    }
+    // hư hại nặng: lửa cháy trên thân
+    if (this.hp / this.hpMax < 0.3) {
+      for (const [fx, fy] of [[-0.6, -0.2], [0.45, 0.1], [0.1, -0.5]] as const) {
+        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 20 + fx * 10);
+        const s = 55 + 14 * Math.sin(t * 13 + fy * 10);
+        ctx.drawImage(this.glows[1], fx * g.rx - s, g.cy + fy * g.ry - s, s * 2, s * 2);
+      }
+    }
+    ctx.restore();
+  }
+
   /** Xúc tu bạch tuộc uốn lượn dưới bụng */
   private drawTentacles(ctx: CanvasRenderingContext2D, alpha: number) {
     const t = this.time;
@@ -1854,8 +2064,12 @@ export class Game {
         ctx.fill();
         ctx.restore();
       }
-      const ds = 0.2;
-      ctx.drawImage(this.sprite("ufo"), dr.x - SCX * ds, dr.y - SCY * ds, this.sprite("ufo").width * ds, this.sprite("ufo").height * ds);
+      const mini = this.art("ufo");
+      if (mini) ctx.drawImage(mini, dr.x - 55, dr.y - 26, 110, (110 * mini.naturalHeight) / mini.naturalWidth);
+      else {
+        const ds = 0.2;
+        ctx.drawImage(this.sprite("ufo"), dr.x - SCX * ds, dr.y - SCY * ds, this.sprite("ufo").width * ds, this.sprite("ufo").height * ds);
+      }
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now * 12 + dr.t0);
@@ -1989,8 +2203,15 @@ export class Game {
       const tail = clamp(u - 0.35, 0, 1);
       const bx = lerp(s.sx, tx, tail);
       const by = lerp(s.sy, ty, tail);
-      ctx.globalAlpha = fade;
+      ctx.globalAlpha = fade * 0.3;
       ctx.strokeStyle = s.color;
+      ctx.lineWidth = 20;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(hx, hy);
+      ctx.stroke();
+      ctx.globalAlpha = fade;
       ctx.lineWidth = 7;
       ctx.lineCap = "round";
       ctx.beginPath();
@@ -2143,7 +2364,7 @@ export class Game {
         text(ctx, short(b.user.name, 16), b.x, b.y - 150, 30, "#fff", "center", 900);
       } else if (b.style === "twin") {
         // hai tia từ "kính râm" của người tặng, quét nhẹ trên thân đĩa
-        const sweep = Math.sin(this.time * 6) * 0.2 * this.bossDef.hitRx * this.sc;
+        const sweep = Math.sin(this.time * 6) * 0.2 * this.geo.rx;
         for (const [dx, col] of [[-16, "rgba(255,80,220,0.8)"], [16, "rgba(90,220,255,0.8)"]] as const) {
           line(b.x + dx, b.y, x1 + sweep + dx * 3, y1, 16 * k, col);
           line(b.x + dx, b.y, x1 + sweep + dx * 3, y1, 5 * k, "rgba(255,255,255,0.95)");
@@ -2355,8 +2576,7 @@ export class Game {
       } else if (this.progress <= 0.75) text(ctx, tip, CX, SAFE.top + 206, 26, "#ffe08a", "center", 800);
       this.drawAltimeter(ctx);
       // bảng TOP XẠ THỦ (góc phải, y 520–720) mờ đi khi thân trùm che lên
-      const d2 = this.bossDef;
-      const over = this.ufoAlive && this.ux + d2.hitRx * this.sc > W - 320 && Math.abs(this.uy + d2.hitCy * this.sc - 620) < d2.hitRy * this.sc + 120;
+      const over = this.ufoAlive && this.ux + this.geo.rx > W - 320 && Math.abs(this.uy + this.geo.cy - 620) < this.geo.ry + 120;
       this.topAlpha = approach(this.topAlpha, over ? 0.18 : 1, 6, 1 / 60);
       if (this.progress <= 0.75) {
         ctx.globalAlpha = this.topAlpha;
