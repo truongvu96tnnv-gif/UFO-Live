@@ -18,6 +18,7 @@ import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ControlEvent, TikTokLiveConnection, WebcastEvent } from "tiktok-live-connector";
 import { WebSocket, WebSocketServer } from "ws";
+import { bindLiveEvents } from "./live";
 import type { LiveEvent, LiveUser } from "../src/live/events";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -187,45 +188,6 @@ async function avatar(u: string, res: ServerResponse) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = any;
 
-function toUser(u: Loose): LiveUser | null {
-  if (!u) return null;
-  const id = String(u.uniqueId || u.userId || "");
-  if (!id) return null;
-  const pic: string | undefined = u.profilePicture?.urls?.[0] ?? u.profilePictureUrl;
-  return {
-    id,
-    name: String(u.nickname || u.uniqueId || id).slice(0, 60),
-    avatar: pic ? `/avatar?u=${encodeURIComponent(pic)}` : undefined,
-  };
-}
-
-/** combo đang chạy: khoá người+quà+nhóm → repeatCount đã phát */
-const streaks = new Map<string, { n: number; at: number }>();
-
-function onGift(d: Loose) {
-  const user = toUser(d.user);
-  if (!user) return;
-  const giftType = d.giftDetails?.giftType ?? d.giftType;
-  // TikTok gọi trường này là diamondCount nhưng giá trị là giá quà tính bằng xu (Hoa hồng = 1)
-  const coins = Number(d.giftDetails?.diamondCount ?? d.diamondCount ?? 1) || 1;
-  const gift = String(d.giftDetails?.giftName || d.giftName || "Quà");
-  const repeat = Math.max(1, Number(d.repeatCount) || 1);
-  let count = repeat;
-  if (giftType === 1) {
-    const key = `${user.id}:${d.giftId}:${d.groupId ?? ""}`;
-    const prev = streaks.get(key)?.n ?? 0;
-    count = repeat - prev;
-    if (d.repeatEnd) streaks.delete(key);
-    else streaks.set(key, { n: repeat, at: Date.now() });
-  }
-  if (count > 0) broadcast({ type: "gift", user, gift, coins, count });
-}
-
-setInterval(() => {
-  const old = Date.now() - 120_000;
-  for (const [k, v] of streaks) if (v.at < old) streaks.delete(k);
-}, 60_000).unref();
-
 let conn: TikTokLiveConnection | null = null;
 let viewerCount = 0;
 let retry = 5000;
@@ -240,46 +202,7 @@ async function connectTikTok() {
   }
   const c = new TikTokLiveConnection(USERNAME, { signApiKey: SIGN_API_KEY, enableExtendedGiftInfo: false });
   conn = c;
-  // danh sách người xem hàng đầu TikTok gửi định kỳ (kèm số người xem): đưa họ vào thành phố ngay,
-  // không cần đợi họ tương tác — người đã ở trong phòng từ trước khi bridge kết nối cũng hiện
-  const seeded = new Set<string>();
-  c.on(WebcastEvent.ROOM_USER, (d: Loose) => {
-    viewerCount = Number(d.viewerCount) || viewerCount;
-    for (const t of (d.topViewers ?? []).slice(0, 20)) {
-      const user = toUser(t?.user);
-      if (user && !seeded.has(user.id)) {
-        seeded.add(user.id);
-        broadcast({ type: "join", user });
-      }
-    }
-  });
-  c.on(WebcastEvent.MEMBER, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "join", user });
-  });
-  c.on(WebcastEvent.LIKE, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "like", user, count: Math.max(1, Number(d.likeCount) || 1) });
-  });
-  c.on(WebcastEvent.CHAT, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "chat", user, text: String(d.comment ?? "").slice(0, 200) });
-  });
-  c.on(WebcastEvent.GIFT, onGift);
-  c.on(WebcastEvent.ENVELOPE, (d: Loose) => {
-    // rương xu: người thả nằm khá sâu trong gói tin
-    const user = toUser(d.treasureBoxUser?.user2?.user3?.[0]?.user4?.user ?? d.user);
-    const coins = Number(d.treasureBoxData?.coins) || 0;
-    if (user && coins > 0) broadcast({ type: "envelope", user, coins });
-  });
-  c.on(WebcastEvent.FOLLOW, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "follow", user });
-  });
-  c.on(WebcastEvent.SHARE, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "share", user });
-  });
+  bindLiveEvents(c, broadcast, (count) => { viewerCount = count; });
   c.on(WebcastEvent.STREAM_END, () => {
     broadcast({ type: "status", state: "offline", detail: "live đã kết thúc" });
     schedule();
