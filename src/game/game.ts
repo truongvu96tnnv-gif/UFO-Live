@@ -6,6 +6,7 @@ import { Scene } from "./scene";
 import { SpriteAnim } from "./anim";
 import { LASER_KINDS } from "./audio/voices";
 import { drawWarped } from "./warp";
+import { DEFEATS, FATE_DUR, FATE_STAYS, drawCity, drawScreen, type Fate } from "./defeat";
 import { bossOver, bossUnder, MOTION, type FxCtx } from "./bossfx";
 import { BOSS_ANIM, BOSS_ART, BOSSES, NORMAL_UFOS, isMilestone, milestoneBoss, nextMilestone, PLANET_EYE, RANDOM_BOSSES, makeBossSprite, type BossDef, type BossId } from "./bosses";
 import { resolveGift, WEAPON_CAP, WEAPON_LABEL } from "./gifts";
@@ -76,6 +77,8 @@ interface Person {
   sayT: number;
   /** combo quà đang chạy: "🌹 ×12" trên đầu bong bóng */
   combo: { icon: string; n: number; t: number } | null;
+  /** số phận trong cảnh hạ đất (null = bị hút lên đĩa như thường) */
+  fate: Fate | null;
 }
 
 type ShotKind = "laser" | "rocket" | "heavy" | "mega" | "heart" | "bill";
@@ -273,6 +276,8 @@ export class Game {
   /** Kẻ Nuốt Hành Tinh: đang hút người vào miệng hố đen */
   private devour: { t0: number; need: number; dealt: number; victims: Person[] } | null = null;
   private spitT = -99;
+  /** vòng vừa rồi thua (màn nghỉ ghi câu "thả về" theo boss) */
+  private lastLost = false;
   private drones: Drone[] = [];
   private charge: { t0: number; need: number; dealt: number } | null = null;
   private cloak = 0;
@@ -609,18 +614,33 @@ export class Game {
       this.streak = 0;
       this.diffMul = clamp(this.diffMul * (this.boss ? 0.92 : 0.8), 0.45, 6);
       this.setPhase("lose");
-      // hút từ người gần đĩa ra xa
+      // mỗi boss một kiểu "hạ đất": lịch số phận từng người theo hiệu ứng (quét, lan, thổi…)
+      const def = DEFEATS[this.bossDef.id];
       const order = this.people
         .map((p) => {
           const [x, y] = this.personPos(p);
-          return [Math.hypot(x - CX, y - UFO_LAND_Y), p] as const;
+          return [Math.hypot(x - CX, y - UFO_LAND_Y), p, x, y] as const;
         })
         .sort((a, b) => a[0] - b[0]);
       const spread = Math.min(0.12, 2.6 / Math.max(1, order.length));
-      order.forEach(([, p], i) => (p.suck = this.time + 0.9 + i * spread));
+      order.forEach(([, p, x, y], i) => {
+        p.fate = def.fate === "abduct" ? null : def.fate;
+        let at = 0.9 + i * spread;
+        if (def.fate === "pixel") at = 0.8 + clamp((y - 900) / 700, 0, 1) * 1.6;
+        else if (def.fate === "blown") at = 1.2 + clamp(x / W, 0, 1) * 1.2;
+        else if (def.fate === "crystal") at = 0.6 + Math.abs(x - CX) / 500;
+        else if (def.fate === "fall") at = 1 + Math.random() * 0.4;
+        else if (def.fate === "gold" || def.fate === "swept" || def.fate === "fling") at = 0.7 + Math.random() * 2.3;
+        else if (def.fate === "vanish") at = 0.8 + Math.random() * 3;
+        else if (def.fate === "carried") at = 0.6 + i * 0.15;
+        else if (def.fate === "swallow") at = 0.8 + i * spread * 1.3;
+        p.suck = this.time + at;
+      });
       this.abducted = order.length;
       this.sfx.lose();
+      this.sfx.defeat(this.bossDef.id);
     }
+    this.lastLost = !win;
     this.save();
   }
 
@@ -856,6 +876,7 @@ export class Game {
       say: "",
       sayT: -99,
       combo: null,
+      fate: null,
     };
     this.people.push(p);
     this.people.sort((a, b) => a.z - b.z);
@@ -1026,8 +1047,11 @@ export class Game {
           // được thả về: bong bóng bật ra lại
           for (const p of this.people) {
             if (p.suck < 0) continue;
+            const stay = p.fate && FATE_STAYS[p.fate];
+            if (stay) this.sparks(...this.personPos(p), 14, 400);
             p.suck = -1;
-            p.born = this.time + Math.random() * 0.8;
+            p.fate = null;
+            p.born = stay ? this.time - 1 : this.time + Math.random() * 0.8;
           }
         }
         this.ufoAlive = false;
@@ -1150,9 +1174,21 @@ export class Game {
 
   private updateLose(dt: number) {
     const t = this.phaseT;
-    if (t < 5.6) {
+    const def = DEFEATS[this.bossDef.id];
+    if (def.exit !== "flyup") {
+      // ở lại thống trị thành phố tới hết cảnh
+      const ty = def.exit === "perch" ? UFO_LAND_Y + 40 : UFO_LAND_Y - 40;
+      this.moveUfo(CX, ty + Math.sin(this.time * 1.4) * 6, 2.5, dt);
+      this.beamWant = 0;
+      if (def.exit === "vanish") this.cloak = approach(this.cloak, t > 0.6 ? 1 : 0, 3, dt);
+      if (this.at("quake", def.city === "cracks" ? 1.1 : def.city === "lava" ? 0.6 : def.city === "blackout" ? 0.5 : 99)) {
+        this.shake = 30;
+        this.flash = def.city === "blackout" ? 0.7 : 0.4;
+      }
+    } else if (t < 5.6) {
       this.moveUfo(CX, UFO_LAND_Y - 40 + Math.sin(this.time * 1.4) * 6, 2.5, dt);
-      this.beamWant = t > 0.5 ? 1 : 0.4;
+      this.beamWant = def.beam ? (t > 0.5 ? 1 : 0.4) : 0;
+      if (this.at("quake", def.city === "blackout" ? 0.5 : 99)) this.flash = 0.7;
     } else {
       // no nê rồi bay đi
       this.beamWant = 0;
@@ -1324,9 +1360,23 @@ export class Game {
   draw(ctx: CanvasRenderingContext2D) {
     ctx.save();
     if (this.shake > 0.3) ctx.translate(rand(-1, 1) * this.shake, rand(-1, 1) * this.shake);
+    const lose = this.phase === "lose" ? DEFEATS[this.bossDef.id] : null;
+    const env = this.defeatEnv();
+    if (lose?.city === "tilt") {
+      // hố đen nuốt cả phố: thế giới nghiêng & co dần về phía miệng
+      const k = clamp((this.phaseT - 0.5) / 4.5, 0, 1);
+      // góc lộ ra khi thế giới co & xoay là khoảng không vũ trụ tối, không để lộ nền canvas
+      ctx.fillStyle = "#04030a";
+      ctx.fillRect(-60, -60, W + 120, H + 120);
+      ctx.translate(env.mx, env.my);
+      ctx.rotate(0.22 * k * k);
+      ctx.scale(1 - 0.18 * k, 1 - 0.18 * k);
+      ctx.translate(-env.mx, -env.my);
+    }
     ctx.drawImage(this.bg, 0, 0);
     this.drawTowerLights(ctx);
     this.scene.drawBack(ctx);
+    if (lose) drawCity(ctx, lose.city, env);
 
     const back = this.people.filter((p) => p.z < 0.85);
     const front = this.people.filter((p) => p.z >= 0.85);
@@ -1354,6 +1404,7 @@ export class Game {
     this.scene.drawFront(ctx);
     ctx.restore();
 
+    if (lose) drawScreen(ctx, lose.city, env);
     this.drawAlarm(ctx);
     if (this.flash > 0.01) {
       ctx.fillStyle = `rgba(255,250,235,${this.flash * 0.85})`;
@@ -1383,7 +1434,14 @@ export class Game {
     let r = BUBBLE_R * p.z;
     let rot = 0;
     let glow = p.pulse * 0.7;
-    if (p.suck >= 0) {
+    let fateU = -1;
+    let alpha = 1;
+    if (p.suck >= 0 && p.fate) {
+      const pose = this.fatePose(p, x, y, r);
+      if (!pose) return;
+      ({ x, y, r, rot, alpha, u: fateU } = pose);
+      glow = pose.glow;
+    } else if (p.suck >= 0) {
       const su = clamp((this.time - p.suck) / 0.95, 0, 1);
       if (su >= 1) return;
       const e = su * su * (3 - 2 * su);
@@ -1429,14 +1487,25 @@ export class Game {
     if (age < 0.6) r *= age < 0.2 ? age / 0.2 : 1 + 0.12 * Math.sin((age - 0.2) * 18) * Math.exp(-(age - 0.2) * 7);
     if (x < -r * 2 || x > W + r * 2) return;
 
+    if (p.fate === "cocoon" && fateU >= 0) {
+      // sợi tơ treo kén
+      ctx.strokeStyle = "rgba(230,255,220,0.7)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x + Math.sin(this.time) * 10, y - r - 420);
+      ctx.stroke();
+    }
+    if (p.fate === "carried" && fateU >= 0) this.drawCarrier(ctx, x, y, r, fateU);
     if (glow > 0.02) {
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = glow;
+      ctx.globalAlpha = glow * alpha;
       ctx.drawImage(this.glows[p.suck >= 0 ? 4 : 2], x - r * 2, y - r * 2, r * 4, r * 4);
       ctx.restore();
     }
     ctx.save();
+    ctx.globalAlpha = alpha;
     ctx.translate(x, y);
     ctx.rotate(rot);
     ctx.drawImage(this.avatars.get(p.user), -r * 0.92, -r * 0.92, r * 1.84, r * 1.84);
@@ -1455,6 +1524,7 @@ export class Game {
       ctx.fill();
       text(ctx, "⚡", Math.sin(this.time * 9) * 4, 0, r * 0.9, "#ffd55a", "center", 400);
     }
+    if (p.fate && fateU >= 0) this.drawFateOverlay(ctx, p.fate, fateU, r);
     ctx.restore();
     if (p.suck < 0) {
       text(ctx, short(p.user.name, 12), x, y + r + 16, 17, "rgba(255,255,255,0.92)", "center", 700);
@@ -1797,6 +1867,210 @@ export class Game {
       default:
         break;
     }
+  }
+
+  private defeatEnv() {
+    const [mx, my] = this.bossDef.id === "devourer" ? this.mawPos() : [this.ux, this.uy];
+    return { t: this.phaseT, time: this.time, ux: this.ux, uy: this.uy, glows: this.glows, mx, my };
+  }
+
+  /** vị trí / cỡ / độ trong của 1 người theo số phận trong cảnh hạ đất (null = đã biến khỏi màn) */
+  private fatePose(p: Person, x: number, y: number, r: number) {
+    const f = p.fate!;
+    const raw = this.time - p.suck;
+    const u = clamp(raw / FATE_DUR[f], 0, 1);
+    let rot = 0;
+    let alpha = 1;
+    let glow = 0;
+    if (raw < 0) return { x, y, r, rot, alpha, glow, u: -1 };
+    const e = u * u * (3 - 2 * u);
+    const side = x < CX ? -1 : 1;
+    switch (f) {
+      case "pixel":
+        if (u >= 1) return null;
+        y -= u * 90;
+        alpha = 1 - u;
+        glow = 0.8 * (1 - u);
+        break;
+      case "fall":
+        if (u >= 1) return null;
+        if (u < 0.35) x += Math.sin(this.time * 80 + p.p) * 3;
+        else {
+          const d = ((u - 0.35) / 0.65) ** 2;
+          y += d * 520;
+          rot = d * 1.4 * side;
+        }
+        alpha = 1 - clamp((u - 0.8) / 0.2, 0, 1);
+        break;
+      case "gold":
+      case "crystal":
+        rot = 0;
+        break;
+      case "swept":
+        if (u >= 1) return null;
+        x += side * u * u * 900;
+        y -= Math.sin(u * Math.PI) * 160;
+        rot = side * u * 7;
+        break;
+      case "vanish":
+        if (u >= 1) return null;
+        alpha = u < 0.7 ? (Math.sin(this.time * 70 + p.p * 9) > 0 ? 1 : 0.15) : 1 - (u - 0.7) / 0.3;
+        x += (Math.random() - 0.5) * 10 * u;
+        break;
+      case "cocoon":
+        y -= e * 70;
+        rot = u >= 1 ? Math.sin(this.time * 2 + p.p) * 0.18 : 0;
+        x += u >= 1 ? Math.sin(this.time * 2 + p.p) * 8 : 0;
+        break;
+      case "swallow": {
+        if (u >= 1) return null;
+        const [mx, my] = this.mawPos();
+        const ang = p.p + u * Math.PI * 4;
+        const sw = (1 - e) * 90;
+        x = x + (mx - x) * e + Math.cos(ang) * sw;
+        y = y + (my - y) * e + Math.sin(ang) * sw * 0.6;
+        r *= 1 - 0.9 * e;
+        rot = u * 8;
+        glow = 0.5;
+        break;
+      }
+      case "carried":
+        if (u > 0.35) y -= ((u - 0.35) / 0.65) ** 2 * 1700;
+        if (u >= 1 || y < -150) return null;
+        glow = u > 0.3 ? 0.4 : 0;
+        break;
+      case "fling":
+        if (u >= 1) return null;
+        x += side * u * 320;
+        y += -1000 * u + 1300 * u * u;
+        rot = side * u * 11;
+        alpha = 1 - clamp((u - 0.85) / 0.15, 0, 1);
+        glow = 0.6;
+        break;
+      case "blown":
+        if (u >= 1) return null;
+        x += u * u * 1150;
+        y -= u * 260;
+        rot = u * 10;
+        alpha = 1 - u ** 3;
+        glow = 0.5;
+        break;
+      default:
+        break;
+    }
+    return { x, y, r, rot, alpha, glow, u };
+  }
+
+  /** lớp phủ lên bong bóng theo số phận (vẽ trong toạ độ bong bóng, tâm 0,0) */
+  private drawFateOverlay(ctx: CanvasRenderingContext2D, f: Fate, u: number, r: number) {
+    switch (f) {
+      case "gold": {
+        // tượng vàng: phủ vàng kim loại + lấp lánh
+        const k = clamp(u * 1.4, 0, 1);
+        const g = ctx.createLinearGradient(-r, -r, r, r);
+        g.addColorStop(0, `rgba(255,240,170,${0.9 * k})`);
+        g.addColorStop(0.5, `rgba(230,170,40,${0.85 * k})`);
+        g.addColorStop(1, `rgba(140,90,10,${0.9 * k})`);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.95, 0, Math.PI * 2);
+        ctx.fill();
+        if (k >= 1) {
+          ctx.globalCompositeOperation = "lighter";
+          const a = (this.time * 1.5 + r) % 3;
+          if (a < 1) ctx.drawImage(this.glows[3], -r * 0.7 + a * r, -r * 0.6, r * 0.8, r * 0.8);
+          ctx.globalCompositeOperation = "source-over";
+        }
+        return;
+      }
+      case "crystal": {
+        // khối pha lê lục giác bọc quanh
+        const k = clamp(u * 1.3, 0, 1);
+        const R = r * (1 + 0.35 * k);
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+          const x = Math.cos(a) * R;
+          const y = Math.sin(a) * R * 1.15;
+          if (i) ctx.lineTo(x, y);
+          else ctx.moveTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = `rgba(140,230,255,${0.45 * k})`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(230,255,255,${0.9 * k})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = `rgba(255,255,255,${0.35 * k})`;
+        ctx.beginPath();
+        ctx.moveTo(-R * 0.5, -R * 0.9);
+        ctx.lineTo(-R * 0.1, -R * 0.9);
+        ctx.lineTo(-R * 0.6, R * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        return;
+      }
+      case "cocoon": {
+        // kén tơ trắng quấn dần từ dưới lên
+        const k = clamp(u * 1.2, 0, 1);
+        ctx.fillStyle = `rgba(235,240,230,${0.9 * k})`;
+        ctx.beginPath();
+        ctx.ellipse(0, r * 0.1, r * 1.05, r * 1.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(150,170,140,${0.8 * k})`;
+        ctx.lineWidth = 2;
+        for (let i = -3; i <= 3; i++) {
+          ctx.beginPath();
+          ctx.ellipse(0, i * r * 0.3, r * 1.05 * Math.sqrt(1 - (i / 4.2) ** 2), r * 0.12, 0.15, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        return;
+      }
+      case "fall": {
+        // bất tỉnh: xám đi, có tia điện xẹt
+        ctx.fillStyle = "rgba(30,34,44,0.6)";
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.92, 0, Math.PI * 2);
+        ctx.fill();
+        if (u < 0.4 && Math.random() < 0.5) text(ctx, "⚡", 0, 0, r * 0.8, "#7ff0ff", "center", 400);
+        return;
+      }
+      case "pixel": {
+        // tan thành điểm ảnh xanh bay lên
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < 14; i++) {
+          const a = i * 2.4;
+          const d = u * r * (1.2 + (i % 4) * 0.4);
+          ctx.fillStyle = `rgba(120,230,255,${1 - u})`;
+          ctx.fillRect(Math.cos(a) * d - 4, Math.sin(a) * d - u * 60 - 4, 8, 8);
+        }
+        ctx.globalCompositeOperation = "source-over";
+        return;
+      }
+      default:
+        return;
+    }
+  }
+
+  /** UFO con hạ xuống tóm người rồi chở bay lên (cảnh chiếm đóng của Phi Thuyền Mẹ) */
+  private drawCarrier(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, u: number) {
+    const img = this.art("ufo");
+    const dy = u < 0.35 ? (1 - u / 0.35) ** 2 * -600 : 0;
+    const cy = y - r - 34 + dy;
+    ctx.save();
+    if (u > 0.25) {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = "rgba(130,255,170,0.25)";
+      ctx.beginPath();
+      ctx.moveTo(x - 14, cy + 12);
+      ctx.lineTo(x + 14, cy + 12);
+      ctx.lineTo(x + r, y + r);
+      ctx.lineTo(x - r, y + r);
+      ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
+    }
+    if (img) ctx.drawImage(img, x - 55, cy - 26, 110, (110 * img.naturalHeight) / img.naturalWidth);
+    ctx.restore();
   }
 
   /** tâm miệng hố đen của Kẻ Nuốt Hành Tinh (px sân khấu) */
@@ -3319,14 +3593,15 @@ export class Game {
       ctx.save();
       ctx.translate(CX, 620);
       ctx.scale(k, k);
-      text(ctx, "CẢ LIVE ĐÃ BỊ", 0, -50, 64, "#ffffff", "center", 900);
-      text(ctx, "BẮT CÓC! 👽", 0, 30, 92, "#9dff7a", "center", 900);
+      const dd = DEFEATS[d.id];
+      fitText(ctx, dd.title1, 0, -50, 64, W - 80, "#ffffff");
+      fitText(ctx, dd.title2, 0, 30, 92, W - 60, dd.color);
       ctx.restore();
       if (t > 2) {
         ctx.globalAlpha = fade * clamp((t - 2) / 0.4, 0, 1);
-        text(ctx, `${this.abducted} người dân đã bị đưa lên phi thuyền`, CX, 730, 32, "#ffe08a", "center", 800);
+        fitText(ctx, dd.sub.replace("{n}", String(this.abducted)), CX, 730, 32, W - 100, "#ffe08a", 800);
         if (this.lostStreak > 1) text(ctx, `💔 Chuỗi ${this.lostStreak} trận thắng bị ${this.boss ? d.name : "UFO"} cắt đứt`, CX, 780, 30, "#ff8a8a", "center", 800);
-        else text(ctx, "Thả tim để phục thù ở vòng sau!", CX, 780, 30, "#fff", "center", 700);
+        else fitText(ctx, dd.revenge, CX, 780, 30, W - 100, "#fff", 700);
       }
       ctx.globalAlpha = 1;
     } else if (this.phase === "break") {
@@ -3336,7 +3611,7 @@ export class Game {
       ctx.beginPath();
       ctx.roundRect(110, 560, W - 220, 420, 32);
       ctx.fill();
-      text(ctx, this.round === 0 ? "SẴN SÀNG BẢO VỆ TRÁI ĐẤT?" : "MỌI NGƯỜI ĐÃ ĐƯỢC THẢ VỀ", CX, 620, 36, "#9dff7a", "center", 900);
+      fitText(ctx, this.round === 0 ? "SẴN SÀNG BẢO VỆ TRÁI ĐẤT?" : this.lastLost ? DEFEATS[d.id].free : "TRÁI ĐẤT VẪN AN TOÀN!", CX, 620, 36, W - 260, "#9dff7a");
       text(ctx, "VÒNG TIẾP THEO SAU", CX, 690, 30, "#fff", "center", 800);
       text(ctx, `${Math.max(0, Math.ceil(BREAK_T - t))}`, CX, 790, 120, "#ffd55a", "center", 900);
       // chuỗi thắng & trùm mốc kế tiếp: giữ người xem ở lại

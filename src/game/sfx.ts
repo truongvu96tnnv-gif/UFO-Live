@@ -204,6 +204,10 @@ export class Sfx {
     const e = this.ok;
     if (e) vo.gulp(e, e.now);
   }
+  defeat(id: BossId) {
+    const e = this.ok;
+    if (e) vo.defeatSound(e, e.now, id);
+  }
   roar(big = true) {
     const e = this.ok;
     if (e) vo.roar(e, e.now, big);

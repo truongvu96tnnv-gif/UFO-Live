@@ -1,6 +1,6 @@
 import type { BossId } from "../bosses";
 import { Engine, midi } from "./engine";
-import { crackle, explode, horn, megaBoom } from "./fx";
+import { coin, crackle, droneDrop, explode, horn, megaBoom, shatter, shieldUp } from "./fx";
 
 /**
  * "Giọng" riêng của từng boss (xuất hiện · bị đau · tấn công · gục ngã), tiếng trúng đạn theo chất liệu thân,
@@ -602,6 +602,96 @@ export function bossDeath(e: Engine, t: number, id: BossId) {
     case "mother":
       megaBoom(e, t + 0.9);
       crackle(e, t, 50, 3, e.sfx, 0.06, 1200);
+      break;
+    default:
+      break;
+  }
+}
+
+// ======================= cảnh hạ đất (cả phòng thua) =======================
+
+/** Âm thanh riêng cho cảnh thua của từng boss (phát kèm nhạc thua) */
+export function defeatSound(e: Engine, t: number, id: BossId) {
+  const out = e.sfx;
+  switch (id) {
+    case "ufo2":
+      // dịch chuyển: chuỗi "xèo" đi lên lần lượt
+      for (let i = 0; i < 12; i++) {
+        const tt = t + 0.8 + i * 0.16;
+        const g = e.gain(0, e.pan(out, r(150, 930)), 0.4);
+        const o = e.osc("sine", r(500, 800), tt, 0.3, g);
+        o.frequency.exponentialRampToValueAtTime(r(2500, 3500), tt + 0.25);
+        e.env(g.gain, tt, 0.04, 0.005, 0.25);
+      }
+      break;
+    case "ufo3": {
+      // EMP: "bụp" điện + tiếng máy tắt dần + tách tách đèn tắt
+      explode(e, t + 0.5, true);
+      const g = e.gain(0, out, 0.3);
+      const o = e.osc("sawtooth", 420, t + 0.6, 2.4, g);
+      o.frequency.exponentialRampToValueAtTime(30, t + 2.8);
+      e.env(g.gain, t + 0.6, 0.1, 0.02, 2.3);
+      for (let i = 0; i < 8; i++) {
+        const tt = t + 1 + i * r(0.08, 0.25);
+        const cg = e.gain(0, e.pan(out, r(100, 980)));
+        e.noiseSrc(tt, 0.02, cg);
+        e.env(cg.gain, tt, 0.15, 0.001, 0.02);
+      }
+      break;
+    }
+    case "gold":
+      for (let i = 0; i < 40; i++) coin(e, t + 0.4 + i * r(0.04, 0.1), r(150, 930), 0.9);
+      bossIntro(e, t + 3.2, "gold");
+      break;
+    case "octopus":
+      for (let i = 0; i < 8; i++) {
+        const tt = t + 0.7 + i * 0.18;
+        const g = e.gain(0, e.pan(out, r(150, 930)), 0.2);
+        const lp = e.filter("lowpass", 500, 3);
+        lp.connect(g);
+        e.noiseSrc(tt, 0.25, lp);
+        e.env(g.gain, tt, 0.5, 0.005, 0.22);
+      }
+      growl(e, t + 0.4, 2.2, 110, 70, [500, 900], 0.4, out);
+      break;
+    case "stealth":
+      for (let i = 0; i < 26; i++) {
+        const tt = t + 0.6 + Math.random() * 3;
+        const g = e.gain(0, e.pan(out, r(100, 980)));
+        e.osc("square", r(200, 4000), tt, 0.05, g);
+        e.env(g.gain, tt, 0.04, 0.001, 0.05);
+      }
+      break;
+    case "spider":
+      spray(e, t + 0.4, 1.6);
+      servo(e, t + 0.3, 20);
+      break;
+    case "devourer":
+      vortex(e, t + 0.2, 4.5);
+      gulp(e, t + 4.4);
+      gulp(e, t + 4.9);
+      break;
+    case "crystal":
+      shieldUp(e, t + 0.5);
+      crackle(e, t + 0.6, 40, 2, out, 0.06, 5000);
+      break;
+    case "mother":
+      for (let i = 0; i < 6; i++) droneDrop(e, t + 0.5 + i * 0.35);
+      horn(e, t + 3, true);
+      break;
+    case "planet": {
+      const g = e.gain(0, out, 0.4);
+      const lp = e.filter("lowpass", 160);
+      lp.connect(g);
+      e.noiseSrc(t + 0.4, 4, lp);
+      e.hold(g.gain, t + 0.4, 0.6, 0.3, 2.8, 0.9);
+      crackle(e, t + 0.6, 50, 3, out, 0.07, 900);
+      explode(e, t + 0.6, true);
+      break;
+    }
+    case "dragon":
+      roar(e, t + 0.3, true);
+      shatter(e, t + 1.1);
       break;
     default:
       break;

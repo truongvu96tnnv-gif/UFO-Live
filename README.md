@@ -64,6 +64,27 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 
 Mỗi kỹ năng có dòng nhắc nhấp nháy trên HUD (vd. `🐙 CỨU AN: 120/399 · còn 4s`) để chủ phòng hô hào cả phòng.
 
+### Cảnh hạ đất (thua vòng)
+
+Mỗi trùm có màn "chiếm Trái Đất" riêng: số phận người xem (bong bóng), hiệu ứng lên cả thành phố hoặc màn hình, dòng chữ, âm thanh và cách được thả về ở màn nghỉ. Định nghĩa ở `src/game/defeat.ts`.
+
+| Trùm | Người xem | Thành phố / màn hình | Chữ | Được thả về |
+|---|---|---|---|---|
+| UFO Xâm Lược | bị tia hút lên tàu | — | CẢ LIVE ĐÃ BỊ BẮT CÓC! 👽 | thả về |
+| UFO Tuần Tra | vỡ thành điểm ảnh, bay lên theo lưới quét | lưới laser xanh quét phố | DỊCH CHUYỂN! ⚡ | dịch chuyển về |
+| UFO Lõi Plasma | ngất, rơi xuống đất | xung EMP, cả phố tắt đèn | THÀNH PHỐ MẤT ĐIỆN! 🔌 | điện có lại, tỉnh dậy |
+| Đĩa Vàng | hoá tượng vàng tại chỗ | mưa xu vàng | CẢ LIVE BỊ HOÁ VÀNG! 👑 | lớp vàng vỡ |
+| Bạch Tuộc | bị xúc tu cuốn ngang ra khỏi màn | mực tím bắn kín màn hình, chảy giọt | BẠCH TUỘC CUỐN! 🐙 | mực tan |
+| Tàu Tàng Hình | chập chờn rồi biến mất | màn hình nhiễu sóng, tàu tàng hình bỏ đi | CẢ LIVE BIẾN MẤT… 👻 | tín hiệu ổn lại |
+| Nhện Vũ Trụ | cuộn kén treo lủng lẳng | mạng nhện giăng kín phố | CUỘN KÉN! 🕸 | kén bị cắt |
+| Kẻ Nuốt Hành Tinh | xoáy vào miệng hố đen | cả thế giới nghiêng & co về miệng | THÀNH PHỐ BỊ NUỐT CHỬNG! 🌀 | quái ợ ra |
+| Pháo Đài Tinh Thể | đóng băng trong pha lê | gai pha lê mọc từ mặt đất | HOÁ PHA LÊ! 💎 | pha lê vỡ |
+| Phi Thuyền Mẹ | UFO con gắp đi từng người | cắm cờ ngoài hành tinh | TRÁI ĐẤT BỊ CHIẾM ĐÓNG! 🛸 | cờ bị giật xuống |
+| Hành Tinh Hủy Diệt | bị hất văng | đất nứt, dung nham phát sáng | THÀNH PHỐ BỊ THIÊU RỤI! 🌋 | dung nham nguội |
+| Rồng Không Gian | bị hơi thở thổi bay | rồng đáp xuống phố, kính màn hình nứt vỡ | RỒNG ĐÃ THỐNG TRỊ TRÁI ĐẤT! 🐉 | vết nứt liền |
+
+Những trùm ở lại (vàng, kén, pha lê) giữ người xem tại chỗ suốt màn thua; sang màn nghỉ họ vỡ vỏ bung tia lửa rồi trở lại bình thường.
+
 ## Đồ hoạ
 
 - **Trùm** dùng art vẽ tay trong `src/assets/bosses/*.webp`, tách nền từ `art-source/bosses-sheet.webp` bằng `tools/cut_bosses.py` (model BiRefNet + bước làm sạch: bỏ khói/sương/vạch lưới, khử viền màu nền, phóng 2× làm nét).
