@@ -1,0 +1,28 @@
+{
+  "name": "ufo-live",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Game tương tác TikTok Live: Bảo Vệ Trái Đất — cả live bắn hạ UFO xâm lược",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "lint": "tsc --noEmit",
+    "bridge": "tsx server/index.ts",
+    "start": "npm run build && tsx server/index.ts"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "^2.5.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
