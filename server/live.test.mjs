@@ -38,14 +38,14 @@ test('protobuf join, chat, likes, follow and share reach the game with user iden
   assert.equal(h.events[2].count, 23);
 });
 
-test('room count includes zero and ranks seed each viewer once', async () => {
+test('room count includes zero and repeated rankings do not keep inactive viewers alive', async () => {
   const h = harness();
   const ranks = [message('Contributor', { user })];
   await h.emit('WebcastRoomUserSeqMessage', { total: '100', ranks });
   await h.emit('WebcastRoomUserSeqMessage', { total: '0', ranks });
   assert.deepEqual(h.viewers, [100, 0]);
   assert.equal(h.events.length, 1);
-  assert.equal(h.events[0].type, 'join');
+  assert.ok(h.events.every(event => event.type === "presence"));
 });
 
 test('numeric ID fallback works and empty users are ignored', async () => {

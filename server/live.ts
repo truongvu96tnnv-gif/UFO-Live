@@ -43,6 +43,7 @@ export function bindLiveEvents(c: TikTokLiveConnection, broadcast: (event: LiveE
 
   // danh sách người xem hàng đầu TikTok gửi định kỳ (kèm số người xem): đưa họ vào thành phố ngay,
   // không cần đợi họ tương tác — người đã ở trong phòng từ trước khi bridge kết nối cũng hiện
+  // Rankings are not a complete attendance list; only seed once per connection.
   const seeded = new Set<string>();
   c.on(WebcastEvent.ROOM_USER, (d: Loose) => {
     const count = Number(d.total ?? d.viewerCount);
@@ -51,7 +52,7 @@ export function bindLiveEvents(c: TikTokLiveConnection, broadcast: (event: LiveE
       const user = toUser(t?.user);
       if (user && !seeded.has(user.id)) {
         seeded.add(user.id);
-        broadcast({ type: "join", user });
+        broadcast({ type: "presence", user });
       }
     }
   });

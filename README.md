@@ -231,3 +231,7 @@ src/live/              kiểu sự kiện, WebSocket client, người xem giả 
 src/ui/panel.ts        thanh nút + bảng tặng quà (chỉ chế độ demo)
 server/index.ts        bridge TikTok → WebSocket, proxy ảnh, phục vụ dist/
 ```
+
+### Thời gian hiển thị người xem
+
+Nhân vật ẩn sau 2 phút không nhận tương tác hoặc cập nhật hiện diện từ TikTok; có tín hiệu mới sẽ hiện lại. Connector không cung cấp sự kiện rời phòng theo từng người đáng tin cậy, nên đây là thời hạn hoạt động, không phải danh sách người đang xem chính xác. Người xem im lặng cũng có thể bị ẩn. Bridge không gửi lại người xem đã hết hạn khi tải lại trang; khi live kết thúc, danh sách nhân vật được xoá, bảng điểm vẫn giữ.

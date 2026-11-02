@@ -9,7 +9,10 @@ export interface LiveUser {
   avatar?: string;
 }
 
+export const PRESENCE_TTL_MS = 120_000;
+
 export type LiveEvent =
+  | { type: "presence"; user: LiveUser; remainingMs?: number }
   | { type: "join"; user: LiveUser }
   | { type: "like"; user: LiveUser; count: number }
   | { type: "chat"; user: LiveUser; text: string }
