@@ -3494,7 +3494,7 @@ export class Game {
       }
     }
     if (this.status) text(ctx, `● ${this.status}`, 24, H - 24, 18, "#ff8a8a", "left", 700);
-    if (this.demo || this.simulatedPlayers > 0) this.drawDemoBadge(ctx);
+    if (this.demo) this.drawDemoBadge(ctx);
   }
 
   /** Thước đo độ cao bên trái: UFO tụt dần về vạch đỏ mặt đất */
@@ -3529,7 +3529,7 @@ export class Game {
    * (lỡ phát trang demo lên live mà không có nhãn = tương tác giả, vi phạm chính sách live).
    */
   private drawDemoBadge(ctx: CanvasRenderingContext2D) {
-    const msg = this.demo ? "CHẾ ĐỘ THỬ · người xem & quà đều là giả lập" : `CÓ ${this.simulatedPlayers} NHÂN VẬT MÔ PHỎNG`;
+    const msg = "CHẾ ĐỘ THỬ · người xem & quà đều là giả lập";
     ctx.font = font(800, 26);
     const w = ctx.measureText(msg).width + 56;
     const y = 112;
