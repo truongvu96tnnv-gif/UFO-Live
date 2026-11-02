@@ -1555,6 +1555,8 @@ export class Game {
             const need = Math.round(this.hpMax * 0.06);
             this.grab = { p, t0: now, need, dealt: 0 };
             this.sfx.grab(this.personPos(p)[0]);
+            // bộ chuyển động: nheo mắt giận → gom năng lượng → phóng chưởng
+            this.anim()?.play("attack", now);
             this.toast(`🐙 Bạch tuộc tóm ${p.user.name}!`, `Dồn ${fmt(need)} sát thương trong 6s để cứu`, d.color, p.user, 3);
           }
         }
@@ -1923,9 +1925,10 @@ export class Game {
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = (d.kind === "milestone" ? 0.38 : 0.2) * alpha + 0.06 * Math.sin(t * 3);
-    ctx.drawImage(this.glows[danger ? 1 : 4], -g.rx * 1.35, g.cy - g.ry * 2.2, g.rx * 2.7, g.ry * 4.4);
+    const tint = danger ? 1 : d.id === "octopus" ? 5 : 4;
+    ctx.drawImage(this.glows[tint], -g.rx * 1.35, g.cy - g.ry * 2.2, g.rx * 2.7, g.ry * 4.4);
     ctx.globalAlpha = (0.45 + 0.25 * Math.sin(t * 5)) * alpha;
-    ctx.drawImage(this.glows[danger ? 1 : 4], -g.rx * 0.6, g.belly - 50, g.rx * 1.2, 100);
+    ctx.drawImage(this.glows[tint], -g.rx * 0.6, g.belly - 50, g.rx * 1.2, 100);
     ctx.restore();
     ctx.globalAlpha = alpha;
     ctx.scale(flip, 1);
