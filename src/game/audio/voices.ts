@@ -15,6 +15,7 @@ export const MATERIAL: Record<BossId, Material> = {
   gold: "gold",
   octopus: "flesh",
   stealth: "metal",
+  spider: "metal",
   cruiser: "metal",
   crystal: "glass",
   mother: "metal",
@@ -286,6 +287,11 @@ export function bossIntro(e: Engine, t: number, id: BossId) {
       }
       break;
     }
+    case "spider":
+      servo(e, t, 14, out);
+      spray(e, t + 0.9, 0.8);
+      horn(e, t + 0.5, false);
+      break;
     case "cruiser": {
       // còi tàu chiến trầm 2 hồi + trống trận
       for (const dt of [0, 1.1]) {
@@ -336,6 +342,44 @@ export function bossIntro(e: Engine, t: number, id: BossId) {
   }
 }
 
+/** tiếng chân nhện cơ khí: chuỗi "lách cách" servo tông cao */
+export function servo(e: Engine, t: number, n: number, out: AudioNode = e.sfx) {
+  for (let i = 0; i < n; i++) {
+    const tt = t + i * r(0.045, 0.09);
+    const g = e.gain(0, e.pan(out, r(200, 880)), 0.1);
+    const o = e.osc("square", r(1800, 2600), tt, 0.05, g);
+    o.frequency.exponentialRampToValueAtTime(r(600, 900), tt + 0.04);
+    e.env(g.gain, tt, 0.03, 0.001, 0.035);
+  }
+}
+
+/** phun tơ: tiếng "xì" nhiễu cao quét xuống */
+export function spray(e: Engine, t: number, dur = 0.6) {
+  const g = e.gain(0, e.sfx, 0.3);
+  const bp = e.filter("bandpass", 5000, 1.2);
+  bp.connect(g);
+  e.sweep(bp.frequency, t, 7000, 1800, dur);
+  e.noiseSrc(t, dur, bp);
+  e.env(g.gain, t, 0.12, 0.02, dur);
+}
+
+/** xé lưới tơ: tiếng rách sột soạt + bật dây */
+export function tear(e: Engine, t: number) {
+  const g = e.gain(0, e.sfx, 0.3);
+  const bp = e.filter("bandpass", 1500, 0.9);
+  bp.connect(g);
+  e.noiseSrc(t, 0.5, bp);
+  e.env(g.gain, t, 0.3, 0.005, 0.45);
+  crackle(e, t, 20, 0.5, e.sfx, 0.08, 2500);
+  for (let i = 0; i < 4; i++) {
+    const tt = t + i * 0.07;
+    const sg = e.gain(0, e.pan(e.sfx, r(200, 880)), 0.2);
+    const o = e.osc("triangle", r(180, 320), tt, 0.4, sg);
+    o.frequency.exponentialRampToValueAtTime(r(80, 120), tt + 0.35);
+    e.env(sg.gain, tt, 0.06, 0.002, 0.35);
+  }
+}
+
 function squelch(e: Engine, t: number, n: number) {
   for (let i = 0; i < n; i++) {
     const tt = t + i * r(0.08, 0.2);
@@ -360,6 +404,14 @@ export function bossHurt(e: Engine, t: number, id: BossId, x?: number) {
       growl(e, t, 0.9, 70, 50, [450, 800], 0.3, out);
       crackle(e, t, 14, 0.8, out, 0.07, 1000);
       return;
+    case "spider": {
+      servo(e, t, 6, out);
+      const g = e.gain(0, out, 0.3);
+      const o = e.osc("sawtooth", 1400, t, 0.4, g);
+      o.frequency.exponentialRampToValueAtTime(300, t + 0.35);
+      e.env(g.gain, t, 0.05, 0.003, 0.35);
+      return;
+    }
     case "crystal": {
       const g = e.gain(0, out, 0.5);
       for (let i = 0; i < 5; i++) e.osc("sine", r(2500, 6000), t + i * 0.03, 0.6, g);
@@ -436,6 +488,11 @@ export function bossDeath(e: Engine, t: number, id: BossId) {
         e.osc("sine", r(2200, 8000), tt, 0.6, cg);
         e.env(cg.gain, tt, r(0.01, 0.03), 0.001, r(0.1, 0.5));
       }
+      break;
+    case "spider":
+      servo(e, t, 24, e.sfx);
+      explode(e, t + 0.6, true, 300);
+      explode(e, t + 0.8, true, 780);
       break;
     case "planet":
     case "mother":

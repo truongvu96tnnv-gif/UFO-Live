@@ -19,6 +19,7 @@ export const MOTION: Record<BossId, { bob: number; bobHz: number; roll: number; 
   gold: { bob: 5, bobHz: 0.4, roll: 0.02, rollHz: 0.25, spin: 0 },
   octopus: { bob: 8, bobHz: 0.38, roll: 0.03, rollHz: 0.22, spin: 0 },
   stealth: { bob: 7, bobHz: 0.45, roll: 0.06, rollHz: 0.3, spin: 0 },
+  spider: { bob: 6, bobHz: 0.5, roll: 0.03, rollHz: 0.32, spin: 0 },
   cruiser: { bob: 6, bobHz: 0.35, roll: 0.025, rollHz: 0.28, spin: 0 },
   crystal: { bob: 12, bobHz: 0.3, roll: 0.015, rollHz: 0.2, spin: 0 },
   mother: { bob: 5, bobHz: 0.25, roll: 0.015, rollHz: 0.18, spin: 0 },

@@ -24,6 +24,7 @@ const HUM: Record<BossId, [number, number, number]> = {
   gold: [55, 340, 0.9],
   octopus: [40, 200, 0.8],
   stealth: [64, 520, 0.6],
+  spider: [58, 420, 0.9],
   cruiser: [36, 240, 1.2],
   crystal: [73, 760, 0.7],
   mother: [30, 210, 1.3],
@@ -187,6 +188,14 @@ export class Sfx {
   bossAttack(id: BossId) {
     const e = this.ok;
     if (e) vo.bossAttack(e, e.now, id);
+  }
+  webUp() {
+    const e = this.ok;
+    if (e) vo.spray(e, e.now, 0.7);
+  }
+  webTear() {
+    const e = this.ok;
+    if (e) vo.tear(e, e.now);
   }
   bossDeath(id: BossId) {
     const e = this.ok;

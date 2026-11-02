@@ -55,6 +55,7 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 | Đĩa Vàng Hoàng Gia | ngẫu nhiên | đĩa mạ vàng, vương miện gai, ngọc đỏ | **Giáp vàng**: máu dày | ×2,2 / ×1,15 |
 | Bạch Tuộc Vũ Trụ | ngẫu nhiên | đầu thịt tím lốm đốm, mắt vàng con ngươi dọc, 8 xúc tu uốn lượn | **Xúc tu tóm người**: nhấc 1 bong bóng lên; cả phòng dồn đủ sát thương trong 6 s thì cứu được, không thì người đó bị bắt và UFO hạ thêm 3 km | ×1,8 / ×1,1 |
 | Tàu Tàng Hình Bóng Đêm | ngẫu nhiên | cánh bay chữ V đen nhám viền neon | **Tàng hình** 4 s trong mỗi 11 s: 70% sát thương bị trượt | ×1,6 / ×0,9 |
+| Nhện Vũ Trụ | ngẫu nhiên | nhện cơ khí 8 chân, 2 súng gatling trên lưng, lõi xanh (chân bò so le bằng lưới biến dạng) | **Lưới tơ** = 8% máu giăng dưới bụng: tim (laser) dính tơ chỉ gây 30%; bình luận (tên lửa) & quà xé lưới; rách thì 12 s sau giăng lại | ×2 / ×1,1 |
 | Chiến Hạm Đỏ | chuỗi **5** | chiến hạm dài, 4 tháp pháo, ống phụt xanh | **Pháo phản công** mỗi 8 s: 3 cầu điện bắn vào bong bóng người xem, ai trúng bị choáng 5 s (sát thương −50%) | ×2 / ×1,3 |
 | Pháo Đài Tinh Thể | chuỗi **10** | cụm tinh thể lục giác, vòng phù văn quay | **Khiên tinh thể** = 12% máu, hứng sát thương trước; vỡ thì 12 s sau tự hồi | ×2,4 / ×1,4 |
 | Phi Thuyền Mẹ | chuỗi **20** | đĩa khổng lồ 3 tầng, vòm kính, khoang chứa phát sáng | **UFO con**: mỗi 7 s thả 2 chiếc lao xuống phố; chạm phố là bắt 1 người. ~45% đạn tự nhắm UFO con | ×2,8 / ×1,5 |

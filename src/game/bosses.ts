@@ -13,8 +13,8 @@ import { canvas, makeSaucer, SCX, SCY, SH, SW, type Img } from "./sprites";
  *    Đĩa Vàng Hoàng Gia (giáp dày) · Bạch Tuộc Vũ Trụ (xúc tu bắt người) · Tàu Tàng Hình (đạn bắn trượt khi tàng hình)
  */
 
-export type BossId = "ufo" | "gold" | "octopus" | "stealth" | "cruiser" | "crystal" | "mother" | "planet";
-export type Ability = "none" | "armor" | "grab" | "cloak" | "counter" | "shield" | "drones" | "charge";
+export type BossId = "ufo" | "gold" | "octopus" | "stealth" | "spider" | "cruiser" | "crystal" | "mother" | "planet";
+export type Ability = "none" | "armor" | "grab" | "cloak" | "web" | "counter" | "shield" | "drones" | "charge";
 
 export interface BossDef {
   id: BossId;
@@ -62,6 +62,10 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: "stealth", name: "Tàu Tàng Hình Bóng Đêm", kind: "random", hpMul: 1.6, timeMul: 0.9, stars: 3, color: "#5ad1ff", ability: "cloak",
     power: "Tàng hình từng đợt — đạn bắn trượt khi tàu biến mất!", w: 780, h: 260, cx: 390, cy: 120, scale: 0.78, hitRx: 330, hitRy: 50, hitCy: 10, bellyY: 70,
   },
+  spider: {
+    id: "spider", name: "Nhện Vũ Trụ", kind: "random", hpMul: 2, timeMul: 1.1, stars: 3, color: "#7dff4a", ability: "web",
+    power: "Giăng lưới tơ: tim (laser) dính lưới chỉ gây 30% — bình luận & quà mới xé được lưới!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.8, hitRx: 280, hitRy: 70, hitCy: 0, bellyY: 70,
+  },
   cruiser: {
     id: "cruiser", name: "Chiến Hạm Đỏ", kind: "milestone", milestone: 5, hpMul: 2, timeMul: 1.3, stars: 4, color: "#ff5a6e", ability: "counter",
     power: "Pháo phản công bắn choáng người xem — sát thương của họ giảm một nửa!", w: 920, h: 300, cx: 460, cy: 150, scale: 0.84, hitRx: 400, hitRy: 55, hitCy: 5, bellyY: 55,
@@ -80,7 +84,7 @@ export const BOSSES: Record<BossId, BossDef> = {
   },
 };
 
-export const RANDOM_BOSSES: BossId[] = ["gold", "octopus", "stealth"];
+export const RANDOM_BOSSES: BossId[] = ["gold", "octopus", "stealth", "spider"];
 
 /** Mốc chuỗi thắng: 5, 10, 20, 30, 50, rồi cứ +25 (75, 100, 125…) */
 export function isMilestone(streak: number) {
@@ -112,6 +116,8 @@ export function makeBossSprite(id: BossId): Img {
       return makeOctopus();
     case "stealth":
       return makeStealth();
+    case "spider":
+      return makeSaucer("rgba(90,255,80,0.22)");
     case "cruiser":
       return makeCruiser();
     case "crystal":
@@ -656,6 +662,7 @@ import artMother from "../assets/bosses/mother.webp";
 import artOctopus from "../assets/bosses/octopus.webp";
 import artPlanet from "../assets/bosses/planet.webp";
 import artStealth from "../assets/bosses/stealth.webp";
+import artSpider from "../assets/bosses/spider.webp";
 import artUfo from "../assets/bosses/ufo.webp";
 
 export interface BossArt {
@@ -677,6 +684,7 @@ export const BOSS_ART: Record<BossId, BossArt> = {
   gold: { url: artGold, width: 560, cx: 0.5, cy: 0.52, hitRx: 240, hitRy: 85, hitCy: 0, belly: 95 },
   octopus: { url: artOctopus, width: 500, cx: 0.5, cy: 0.42, hitRx: 210, hitRy: 120, hitCy: -40, belly: 45 },
   stealth: { url: artStealth, width: 660, cx: 0.5, cy: 0.55, hitRx: 290, hitRy: 55, hitCy: 0, belly: 60 },
+  spider: { url: artSpider, width: 470, cx: 0.495, cy: 0.43, hitRx: 200, hitRy: 95, hitCy: -15, belly: 130 },
   cruiser: { url: artCruiser, width: 780, cx: 0.5, cy: 0.52, hitRx: 340, hitRy: 85, hitCy: 0, belly: 100 },
   crystal: { url: artCrystal, width: 420, cx: 0.5, cy: 0.5, hitRx: 160, hitRy: 190, hitCy: 0, belly: 215 },
   mother: { url: artMother, width: 840, cx: 0.5, cy: 0.5, hitRx: 380, hitRy: 100, hitCy: -15, belly: 200 },

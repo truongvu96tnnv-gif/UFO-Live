@@ -264,6 +264,10 @@ export class Game {
   private bolts: { p: Person; t0: number; x0: number; y0: number }[] = [];
   private shieldHp = 0;
   private shieldMax = 0;
+  /** lưới tơ Nhện Vũ Trụ: chặn laser, chỉ tên lửa/quà xé được */
+  private webHp = 0;
+  private webMax = 0;
+  private webT0 = -99;
   private drones: Drone[] = [];
   private charge: { t0: number; need: number; dealt: number } | null = null;
   private cloak = 0;
@@ -551,6 +555,8 @@ export class Game {
     this.eyeBlast = 0;
     this.abilityT = this.time + this.introDur + 7;
     this.shieldMax = def.ability === "shield" ? Math.round(this.hpMax * 0.12) : 0;
+    this.webHp = 0;
+    this.webMax = Math.round(this.hpMax * 0.08);
     this.shieldHp = this.shieldMax;
     this.hp = this.hpMax;
     this.hpShown = 0;
@@ -869,7 +875,7 @@ export class Game {
   private fire(kind: ShotKind, user: LiveUser, dmg: number, delay = 0, fx: Shot["fx"] = "", from?: LiveUser) {
     // quá nhiều đạn trên màn → cộng sát thương thẳng, không vẽ thêm (giữ FPS lúc mưa tim)
     if (this.shots.length > 140 && kind === "laser") {
-      this.damage(user, dmg, this.ux + rand(-120, 120), this.uy, false, !this.giftCtx);
+      this.damage(user, dmg, this.ux + rand(-120, 120), this.uy, false, !this.giftCtx, true);
       return;
     }
     const [sx, sy] = this.originFor(from ?? user);
@@ -906,7 +912,7 @@ export class Game {
     else this.sfx.launch(kind === "mega" ? 2.2 : kind === "heavy" ? 1.6 : 1, sx);
   }
 
-  private damage(user: LiveUser, dmg: number, x: number, y: number, big: boolean, boost = false) {
+  private damage(user: LiveUser, dmg: number, x: number, y: number, big: boolean, boost = false, laser = false) {
     if (this.phase !== "battle" || this.hp <= 0) return;
     if (boost && this.golden) dmg *= 2;
     // bị Chiến Hạm Đỏ bắn choáng: sát thương giảm một nửa
@@ -918,6 +924,25 @@ export class Game {
     }
     if (this.grab) this.grab.dealt += dmg;
     if (this.charge) this.charge.dealt += dmg;
+    // Nhện Vũ Trụ: laser dính lưới (30%), tên lửa & quà xé lưới trước
+    if (this.webHp > 0) {
+      if (laser) {
+        dmg *= 0.3;
+        if (Math.random() < 0.06) this.floatText("DÍNH TƠ", x, y - 30, "#b8ff9a", 22);
+      } else {
+        const a = Math.min(this.webHp, dmg);
+        this.webHp -= a;
+        dmg -= a;
+        if (this.webHp <= 0) {
+          this.webHp = 0;
+          this.abilityT = this.time + 12;
+          this.toast("🕸 XÉ RÁCH LƯỚI TƠ!", `${user.name} mở đường cho cả phòng`, "#7dff4a", user, 3);
+          this.sfx.webTear();
+          this.sparks(this.ux, this.uy + this.belly * 0.4, 40, 800);
+        }
+        if (dmg <= 0) return;
+      }
+    }
     // Pháo Đài Tinh Thể: khiên hứng sát thương trước
     if (this.shieldHp > 0) {
       const a = Math.min(this.shieldHp, dmg);
@@ -1192,7 +1217,7 @@ export class Game {
           if (big) this.firework(x, y, s.color, 40);
           this.sfx.hit(big, x);
         }
-        this.damage(s.user, s.dmg, x, y, big, s.boost);
+        this.damage(s.user, s.dmg, x, y, big, s.boost, s.kind === "laser" || s.kind === "heart" || s.kind === "bill");
       }
     }
     for (const s of this.shots) while (s.trail.length && this.time - s.trail[0].t > 0.8) s.trail.shift();
@@ -1321,6 +1346,7 @@ export class Game {
     if (this.ufoAlive) this.drawUfo(ctx);
     this.drawAbilities(ctx);
     this.drawEnemyShots(ctx);
+    this.drawWeb(ctx);
     this.drawBeams(ctx);
     this.drawCrates(ctx);
     this.drawShots(ctx, true);
@@ -1598,6 +1624,14 @@ export class Game {
         this.bolts = this.bolts.filter((b) => b.t0 > -50);
         break;
       }
+      case "web":
+        if (this.webHp <= 0 && now >= this.abilityT) {
+          this.webHp = this.webMax;
+          this.webT0 = now;
+          this.sfx.webUp();
+          this.toast("🕸 NHỆN GIĂNG LƯỚI TƠ!", "Tim chỉ 30% · chat & quà để xé lưới", "#7dff4a", undefined, 2);
+        }
+        break;
       case "shield":
         // Pháo Đài Tinh Thể: khiên vỡ 12 giây sau thì tự hồi
         if (this.shieldHp <= 0 && now >= this.abilityT) {
@@ -1724,6 +1758,7 @@ export class Game {
     if (this.grab) return [`🐙 CỨU ${short(this.grab.p.user.name, 12).toUpperCase()}: ${fmt(this.grab.dealt)}/${fmt(this.grab.need)} · còn ${Math.ceil(6 - (now - this.grab.t0))}s`, "#d58bff"];
     if (this.charge) return [`👁 NGẮT SẠC: ${fmt(this.charge.dealt)}/${fmt(this.charge.need)} · còn ${Math.ceil(5 - (now - this.charge.t0))}s`, "#ff5a5a"];
     if (this.cloaked) return ["👻 TÀU ĐANG TÀNG HÌNH — 70% ĐẠN BẮN TRƯỢT!", "#7fd8ff"];
+    if (this.webHp > 0) return [`🕸 LƯỚI TƠ ${fmt(this.webHp)} — BÌNH LUẬN & QUÀ ĐỂ XÉ!`, "#9dff7a"];
     if (this.shieldHp > 0) return [`🛡 KHIÊN TINH THỂ: ${fmt(this.shieldHp)} — PHÁ KHIÊN TRƯỚC!`, "#7ff0ff"];
     const drones = this.drones.filter((d) => !d.dead).length;
     if (drones) return [`🛸 ${drones} UFO CON ĐANG LAO XUỐNG — BẮN RƠI NGAY!`, "#ffb15a"];
@@ -1968,9 +2003,9 @@ export class Game {
     const at = (fx: number, fy: number): [number, number] => [ox + w * fx, oy + h * fy];
     const danger = this.phase === "battle" && this.progress > 0.75;
     const alpha = 1 - 0.85 * this.cloak;
-    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, cruiser: 1, crystal: 6, mother: 0, planet: 1 };
+    const AURA: Record<BossId, number> = { ufo: danger ? 1 : 4, gold: 0, octopus: 5, stealth: 6, spider: 4, cruiser: 1, crystal: 6, mother: 0, planet: 1 };
     ctx.save();
-    const organic = d.id === "octopus";
+    const organic = d.id === "octopus" || d.id === "spider";
     // nhịp lơ lửng & chao nghiêng riêng từng trùm (đo từ video giới thiệu boss)
     const mo = MOTION[d.id];
     const TAU = Math.PI * 2;
@@ -1999,7 +2034,7 @@ export class Game {
         const jx = (Math.random() - 0.5) * 40 * this.cloak;
         ctx.drawImage(img, 0, (img.naturalHeight * i) / n, img.naturalWidth, img.naturalHeight / n, ox + jx, oy + (h * i) / n, w, h / n);
       }
-    } else if (organic) drawWarped(ctx, img, ox, oy, w, h, 8, 12, this.octopusWarp(w, h, t));
+    } else if (organic) drawWarped(ctx, img, ox, oy, w, h, d.id === "spider" ? 10 : 8, 12, d.id === "spider" ? this.spiderWarp(w, h, t) : this.octopusWarp(w, h, t));
     else ctx.drawImage(img, ox, oy, w, h);
     ctx.globalCompositeOperation = "lighter";
     if (this.hitFlash > 0.02) {
@@ -2135,6 +2170,25 @@ export class Game {
    * uốn sóng từ gốc ra ngọn, mỗi xúc tu lệch pha theo vị trí ngang, xoè ra rồi khép lại như sứa đẩy nước.
    * Khi đang tóm người thì các xúc tu quẫy mạnh hơn.
    */
+  /**
+   * Chân nhện bò: phần dưới ảnh (chân) nhấc–đặt so le từng cặp, ngọn chân cào nhẹ; súng trên lưng giật khi giăng tơ.
+   */
+  private spiderWarp(w: number, h: number, t: number) {
+    const fast = this.webHp > 0 && this.time - this.webT0 < 0.8 ? 2 : 1;
+    return (u: number, v: number): [number, number] => {
+      if (v < 0.42) {
+        const recoil = v < 0.3 && Math.abs(u - 0.5) > 0.15 && fast > 1 ? Math.sin(t * 40) * 4 : 0;
+        return [0, recoil];
+      }
+      const k = (v - 0.42) / 0.58;
+      const e = k * k;
+      const side = u < 0.5 ? -1 : 1;
+      const ph = t * 5.5 * fast + Math.floor(Math.abs(u - 0.5) * 8) * Math.PI * 0.9 + (side > 0 ? Math.PI : 0);
+      const lift = Math.max(0, Math.sin(ph));
+      return [side * Math.cos(ph) * 9 * e, -lift * 16 * e];
+    };
+  }
+
   private octopusWarp(w: number, h: number, t: number) {
     const ROOT = 0.5;
     const swim = Math.sin(t * 1.5);
@@ -2211,6 +2265,50 @@ export class Game {
   }
 
   /** tia laser đỏ boss bắn trả: chớp sáng ở điểm chạm, bong bóng bị trúng nảy lên */
+  /** Lưới tơ: mạng nhện toả từ bụng nhện xuống, mờ dần khi bị xé */
+  private drawWeb(ctx: CanvasRenderingContext2D) {
+    if (this.webHp <= 0 || !this.ufoAlive || this.bossDef.ability !== "web") return;
+    const grow = clamp((this.time - this.webT0) / 0.5, 0, 1);
+    const k = this.webHp / Math.max(1, this.webMax);
+    const cx = this.ux;
+    const cy = this.uy + this.belly * 0.55;
+    const R = 340 * (0.3 + 0.7 * grow);
+    const spokes = 16;
+    const rings = 7;
+    ctx.save();
+    ctx.lineCap = "round";
+    const pt = (i: number, j: number): [number, number] => {
+      const a = (i / spokes) * Math.PI * 2 + 0.1;
+      const rr = (R * j) / rings;
+      // tơ hơi võng & rung theo gió
+      const sag = Math.sin(this.time * 2 + i) * 3;
+      return [cx + Math.cos(a) * rr + sag, cy + Math.sin(a) * rr * 0.62 + sag];
+    };
+    for (const [w, col] of [[5, `rgba(125,255,74,${0.18 * k})`], [1.6, `rgba(235,255,225,${0.75 * k})`]] as const) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      for (let i = 0; i < spokes; i++) {
+        const [x, y] = pt(i, rings);
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x, y);
+      }
+      for (let j = 1; j <= rings; j++) {
+        for (let i = 0; i <= spokes; i++) {
+          const [x0, y0] = pt(i % spokes, j);
+          const [x1, y1] = pt((i + 1) % spokes, j);
+          // đoạn nối giữa 2 nan võng vào trong
+          const mx = (x0 + x1) / 2 + (cx - (x0 + x1) / 2) * 0.08;
+          const my = (y0 + y1) / 2 + (cy - (y0 + y1) / 2) * 0.08;
+          if (i === 0) ctx.moveTo(x0, y0);
+          ctx.quadraticCurveTo(mx, my, x1, y1);
+        }
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   private drawEnemyShots(ctx: CanvasRenderingContext2D) {
     if (!this.enemyShots.length) return;
     ctx.save();
