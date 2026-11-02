@@ -15,6 +15,10 @@ const q = new URLSearchParams(preset ?? location.search);
 await fontsReady();
 const game = new Game(balanceFromQuery(q));
 game.sfx.muted = q.get("mute") === "1";
+game.sfx.musicOn = q.get("music") !== "0";
+if (q.get("vol")) game.sfx.musicLevel = Math.max(0, Math.min(1, +q.get("vol")! || 0.5));
+// OBS / TikTok LIVE Studio cho phát tiếng ngay; trình duyệt thường thì chờ lần chạm/phím đầu tiên
+game.sfx.unlock();
 
 const canvas = document.createElement("canvas");
 canvas.width = W;
@@ -58,7 +62,7 @@ help.innerHTML = [
   "F: follow · S: chia sẻ · J: thêm người xem giả",
   "D: bật/tắt người xem giả · [ ]: độ đông demo",
   "R: chơi lại từ đầu (xoá tỉ số & chuỗi) · B: chọn trùm cho vòng sau (bấm tiếp để đổi) · N: qua pha tiếp",
-  "M: tắt/bật âm thanh · H: ẩn/hiện bảng này",
+  "M: tắt/bật toàn bộ âm thanh · U: tắt/bật nhạc nền · H: ẩn/hiện bảng này",
 ].join("\n");
 const GIFT_KEYS: Record<string, [string, number]> = {
   "1": ["rose", 5],
@@ -89,6 +93,7 @@ addEventListener("keydown", (e) => {
   else if (k === "r") game.restart();
   else if (k === "b") game.cycleBoss();
   else if (k === "m") game.sfx.muted = !game.sfx.muted;
+  else if (k === "u") game.sfx.musicOn = !game.sfx.musicOn;
   else if (k === "n") {
     const order: Phase[] = ["intro", "battle", "win", "break"];
     game.debugPhase(order[(order.indexOf(game.phase) + 1) % order.length]);
@@ -106,9 +111,26 @@ const you: LiveUser = { id: "you", name: "Bạn", avatar: "demo:200" };
 // nút "Gọi trùm": đánh ngay trùm kế tiếp trong danh sách để xem model & kỹ năng
 const BOSS_ORDER: BossId[] = ["gold", "octopus", "stealth", "cruiser", "crystal", "mother", "planet"];
 let bossI = -1;
+// lời nhắc bật âm thanh (trình duyệt chặn tiếng tới khi người xem chạm)
+const hint = document.createElement("button");
+hint.type = "button";
+hint.textContent = "🔊 Chạm để bật âm thanh";
+hint.style.cssText = "position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:7;padding:10px 16px;border-radius:999px;border:1px solid #ffd55a;background:rgba(8,12,28,.9);color:#ffd55a;font:600 15px 'Chakra Petch',system-ui,sans-serif;cursor:pointer";
+hint.addEventListener("click", () => game.sfx.unlock());
+document.body.appendChild(hint);
+const hideHint = () => {
+  if (game.sfx.running || game.sfx.muted) hint.remove();
+  else setTimeout(hideHint, 400);
+};
+hideHint();
+
 const panel = mountDemoPanel(sink, you, () => game.sfx.unlock(), () => {
   bossI = (bossI + 1) % BOSS_ORDER.length;
   game.debugBoss(BOSS_ORDER[bossI]);
+}, () => {
+  game.sfx.unlock();
+  game.sfx.musicOn = !game.sfx.musicOn;
+  return game.sfx.musicOn;
 });
 panel.show(game.demo);
 canvas.addEventListener("pointerdown", () => {

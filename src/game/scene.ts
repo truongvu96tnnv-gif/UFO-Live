@@ -98,7 +98,7 @@ export class Scene {
   private heat = 0;
   private time = 0;
 
-  constructor(towers: Tower[], private glows: Img[]) {
+  constructor(towers: Tower[], private glows: Img[], private onFire?: (x: number) => void) {
     const rnd = mulberry32(2025);
     const sky = [0, 1, 2, 3].map((i) => makeCloud(100 + i, 720, 300, [150, 160, 190], [40, 46, 66]));
     const smoke = [0, 1, 2].map((i) => makeCloud(200 + i, 720, 280, [120, 120, 130], [30, 30, 36]));
@@ -154,6 +154,7 @@ export class Scene {
         const ty = tg.y + rand(-1.4, 1.2) * tg.ry;
         this.tracers.push({ x: tipx, y: tipy, tx, ty, t: 0, dur: Math.hypot(tx - tipx, ty - tipy) / 2400 });
         t.flash = 1;
+        this.onFire?.(t.x);
         this.puffs.push({ x: tipx, y: tipy, vx: rand(-15, 15), vy: rand(-40, -20), r: 10, life: 0, max: 1.4, dark: 0.4 });
       }
       // khói bốc từ tháp pháo
