@@ -173,6 +173,11 @@ Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phò
 | `TIKTOK_USERNAME` | — | kênh cần đọc sự kiện (hoặc `npm run bridge -- ten_kenh`) |
 | `PORT` / `HOST` | `8787` / `127.0.0.1` | |
 | `SIGN_API_KEY` | — | khoá Euler Stream, nếu connector yêu cầu ký |
+| `LOG` | `1` | in từng sự kiện ra cửa sổ bridge (`👋 An`, `💬 An: bắn`…); `LOG=0` để tắt |
+
+Kiểm tra nhanh: mở `http://localhost:8787/health` — `status` (đã kết nối live chưa), `clients` (số màn hình game đang mở), `viewers` (số người xem), `events` (đếm sự kiện đã nhận theo loại), `lastEventAt`.
+
+Người xem hiện trong thành phố khi: vào phòng, tương tác, hoặc nằm trong danh sách người xem hàng đầu TikTok gửi định kỳ (nên người đã ở trong phòng từ trước cũng hiện). Trang game tải lại thì bridge gửi lại 30 người xem gần nhất.
 
 ### Nối nguồn sự kiện khác
 

@@ -37,14 +37,36 @@ const server = createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: "/ws" });
 let lastStatus: LiveEvent = { type: "status", state: "idle" };
 
+/** đếm sự kiện theo loại (xem ở /health) để biết TikTok có đang gửi về không */
+const counts: Record<string, number> = {};
+let lastEventAt: string | null = null;
+/** người xem gần đây: trang game mở lại / điện thoại tải lại vẫn thấy ngay bong bóng thay vì phòng trống */
+const recent = new Map<string, LiveUser>();
+const VERBOSE = process.env.LOG !== "0";
+const ICON: Record<string, string> = { join: "👋", like: "❤️", chat: "💬", gift: "🎁", envelope: "📦", follow: "➕", share: "↗" };
+
 function broadcast(e: LiveEvent) {
   if (e.type === "status") lastStatus = e;
+  else {
+    counts[e.type] = (counts[e.type] ?? 0) + 1;
+    lastEventAt = new Date().toISOString();
+    recent.delete(e.user.id);
+    recent.set(e.user.id, e.user);
+    if (recent.size > 30) recent.delete(recent.keys().next().value!);
+    if (VERBOSE) {
+      const extra = e.type === "chat" ? `: ${e.text}` : e.type === "like" ? ` ×${e.count}` : e.type === "gift" ? `: ${e.gift} ×${e.count} (${e.coins} xu)` : e.type === "envelope" ? `: rương ${e.coins} xu` : "";
+      console.log(`  ${ICON[e.type] ?? "•"} ${e.user.name}${extra}`);
+    }
+  }
   const msg = JSON.stringify(e);
   for (const c of wss.clients) if (c.readyState === WebSocket.OPEN) c.send(msg);
 }
 
 wss.on("connection", (ws) => {
   ws.send(JSON.stringify(lastStatus));
+  const back = [...recent.values()].map((user) => ({ type: "join", user }) as LiveEvent);
+  if (back.length) ws.send(JSON.stringify(back));
+  console.log(`[game] màn hình game kết nối (${wss.clients.size} đang mở)${back.length ? ` — gửi lại ${back.length} người xem gần đây` : ""}`);
 });
 
 // ---------------- HTTP ----------------
@@ -67,7 +89,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? "/", "http://local");
   if (url.pathname === "/avatar") return avatar(url.searchParams.get("u") ?? "", res);
   if (url.pathname === "/emit" && req.method === "POST") return emit(req, res);
-  if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, clients: wss.clients.size }));
+  if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, clients: wss.clients.size, viewers: viewerCount, events: counts, lastEventAt }));
   if (req.method !== "GET" && req.method !== "HEAD") return void res.writeHead(405).end();
 
   if (!existsSync(DIST)) {
@@ -205,6 +227,7 @@ setInterval(() => {
 }, 60_000).unref();
 
 let conn: TikTokLiveConnection | null = null;
+let viewerCount = 0;
 let retry = 5000;
 
 async function connectTikTok() {
@@ -217,6 +240,19 @@ async function connectTikTok() {
   }
   const c = new TikTokLiveConnection(USERNAME, { signApiKey: SIGN_API_KEY, enableExtendedGiftInfo: false });
   conn = c;
+  // danh sách người xem hàng đầu TikTok gửi định kỳ (kèm số người xem): đưa họ vào thành phố ngay,
+  // không cần đợi họ tương tác — người đã ở trong phòng từ trước khi bridge kết nối cũng hiện
+  const seeded = new Set<string>();
+  c.on(WebcastEvent.ROOM_USER, (d: Loose) => {
+    viewerCount = Number(d.viewerCount) || viewerCount;
+    for (const t of (d.topViewers ?? []).slice(0, 20)) {
+      const user = toUser(t?.user);
+      if (user && !seeded.has(user.id)) {
+        seeded.add(user.id);
+        broadcast({ type: "join", user });
+      }
+    }
+  });
   c.on(WebcastEvent.MEMBER, (d: Loose) => {
     const user = toUser(d.user);
     if (user) broadcast({ type: "join", user });
