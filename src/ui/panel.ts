@@ -41,6 +41,7 @@ const CSS = `
 #ufo-gifts .ic { font-size: 30px; line-height: 1.1; }
 #ufo-gifts .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 #ufo-gifts .xu { color: #ffd55a; font-variant-numeric: tabular-nums; }
+#ufo-pad[hidden], #ufo-gifts[hidden] { display: none; }
 @media (max-width: 360px) { #ufo-gifts .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 `;
 
