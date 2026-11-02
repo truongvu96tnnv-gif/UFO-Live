@@ -21,10 +21,10 @@ export function parseControl(raw: unknown, current: ControlSettings): ControlSet
 }
 
 export const BOT_VIEWER_LIMIT = 20;
-const BOT_NAMES = ["An", "Linh", "Minh", "Hà", "Nam", "Vy", "Khoa", "Mai", "Huy", "Ngọc", "Bảo", "Thảo", "Long", "Nhi", "Phúc", "Chi", "Quân", "My", "Đạt", "Yến"];
+const BOT_NAMES = ["Minh Anh", "Gia Huy", "Khánh Linh", "Thu Hà", "Hoàng Nam", "Thảo Vy", "Đăng Khoa", "Mai Phương", "Quốc Huy", "Bảo Ngọc", "Quốc Bảo", "Thanh Thảo", "Hoàng Long", "Yến Nhi", "Minh Phúc", "Lan Chi", "Anh Quân", "Hà My", "Thành Đạt", "Hải Yến"];
 const BOT_CHATS = ["bắn nào!", "cố lên cả đội", "bảo vệ trái đất", "cùng bắn nhé", "UFO tới rồi", "thêm một loạt nữa", "giữ vững nào", "lên nào!"];
 
-/** Independent rhythms, pauses and short chats; all players remain labelled simulations. */
+/** Independent rhythms, pauses and short chats; simulation IDs remain separate from TikTok users. */
 export class SimulatedPlayers {
   private users: { user: LiveUser; nextAt: number; pace: number; chatIndex: number }[] = [];
   private time = 0;
@@ -52,7 +52,7 @@ export class SimulatedPlayers {
     this.users.length = Math.min(count, this.users.length);
     while (this.users.length < count) {
       const n = this.users.length + 1;
-      const user = { id: `sim:${n}`, name: BOT_NAMES[n - 1], avatar: `demo:${n * 47 % 360}` };
+      const user = { id: `sim:${n}`, name: BOT_NAMES[n - 1], avatar: "/avatars/default-profile.svg" };
       this.users.push({ user, nextAt: this.time + 0.2 + this.random() * 2.8, pace: 0.7 + this.random() * 0.8, chatIndex: n % BOT_CHATS.length });
       this.emit({ type: "join", user });
     }

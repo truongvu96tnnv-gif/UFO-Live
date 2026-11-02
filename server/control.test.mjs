@@ -9,12 +9,13 @@ test('controls reject invalid values and preserve settings in partial updates', 
   }
 });
 
-test('simulation is bounded, labelled, and stops completely when disabled', () => {
+test('simulation is bounded, identifiable, and stops completely when disabled', () => {
   const events = [];
   const sim = new SimulatedPlayers(e => events.push(e), () => {}, () => 0.5);
   sim.configure(3, 3);
-  assert.deepEqual(events.map(e => e.user.name), ['An', 'Linh', 'Minh']);
+  assert.deepEqual(events.map(e => e.user.name), ['Minh Anh', 'Gia Huy', 'Khánh Linh']);
   assert.equal(events.length, 3);
+  assert.ok(events.every(e => e.user.avatar === '/avatars/default-profile.svg'));
   assert.ok(events.every(e => e.type === 'join' && e.user.id.startsWith('sim:') && Boolean(e.user.name)));
   for (let i = 0; i < 20; i++) sim.tick(0.1);
   assert.equal(events.at(-1).type, 'like');

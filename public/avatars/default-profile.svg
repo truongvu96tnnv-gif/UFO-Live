@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Ảnh đại diện mặc định</title>
+  <defs><clipPath id="circle"><circle cx="64" cy="64" r="64"/></clipPath></defs>
+  <g clip-path="url(#circle)">
+    <rect width="128" height="128" fill="#e9e9eb"/>
+    <circle cx="64" cy="45" r="24" fill="#b6b7bc"/>
+    <path d="M16 128v-15c0-25 21-41 48-41s48 16 48 41v15z" fill="#b6b7bc"/>
+  </g>
+</svg>
