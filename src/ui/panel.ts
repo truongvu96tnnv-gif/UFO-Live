@@ -46,7 +46,7 @@ const CSS = `
 @media (max-width: 360px) { #ufo-gifts .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 `;
 
-export function mountDemoPanel(sink: EventSink, user: LiveUser, unlock: () => void, onBoss?: () => void, onMusic?: () => boolean) {
+export function mountDemoPanel(sink: EventSink, user: LiveUser, unlock: () => void, onBoss?: () => void, onMusic?: () => boolean, onLose?: () => void) {
   const style = document.createElement("style");
   style.textContent = CSS;
   document.head.appendChild(style);
@@ -62,6 +62,7 @@ export function mountDemoPanel(sink: EventSink, user: LiveUser, unlock: () => vo
     ["follow", "➕ Follow"],
     ["share", "↗ Chia sẻ"],
     ["boss", "☠ Gọi trùm", "gold"],
+    ["lose", "💀 Cho thua"],
     ["music", "🎵 Nhạc: bật"],
   ];
   for (const [ev, label, cls] of buttons) {
@@ -112,6 +113,9 @@ export function mountDemoPanel(sink: EventSink, user: LiveUser, unlock: () => vo
         return sink({ type: "share", user });
       case "boss":
         onBoss?.();
+        return;
+      case "lose":
+        onLose?.();
         return;
       case "music": {
         const on = onMusic?.() ?? true;

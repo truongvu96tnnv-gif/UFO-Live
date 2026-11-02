@@ -61,7 +61,7 @@ help.innerHTML = [
   "Quà: 1 hoa hồng ×5 · 2 tim ngón tay · 3 nước hoa · 4 pháo giấy · 5 kính râm · 6 súng bắn tiền · 7 thiên hà · 8 vũ trụ",
   "F: follow · S: chia sẻ · J: thêm người xem giả",
   "D: bật/tắt người xem giả · [ ]: độ đông demo",
-  "R: chơi lại từ đầu (xoá tỉ số & chuỗi) · B: chọn trùm cho vòng sau (bấm tiếp để đổi) · N: qua pha tiếp",
+  "R: chơi lại từ đầu (xoá tỉ số & chuỗi) · B: chọn trùm cho vòng sau (bấm tiếp để đổi) · N: qua pha tiếp · K: cho thua ngay (xem cảnh hạ đất)",
   "M: tắt/bật toàn bộ âm thanh · U: tắt/bật nhạc nền · H: ẩn/hiện bảng này",
 ].join("\n");
 const GIFT_KEYS: Record<string, [string, number]> = {
@@ -92,6 +92,7 @@ addEventListener("keydown", (e) => {
   else if (k === "j") sink({ type: "join", user: { id: `guest-${++joinN}`, name: `Khách ${joinN}`, avatar: `demo:${(joinN * 67) % 360}` } });
   else if (k === "r") game.restart();
   else if (k === "b") game.cycleBoss();
+  else if (k === "k" && (game.phase === "intro" || game.phase === "battle")) game.debugPhase("lose");
   else if (k === "m") game.sfx.muted = !game.sfx.muted;
   else if (k === "u") game.sfx.musicOn = !game.sfx.musicOn;
   else if (k === "n") {
@@ -131,6 +132,10 @@ const panel = mountDemoPanel(sink, you, () => game.sfx.unlock(), () => {
   game.sfx.unlock();
   game.sfx.musicOn = !game.sfx.musicOn;
   return game.sfx.musicOn;
+}, () => {
+  // xem ngay cảnh hạ đất của trùm đang đánh
+  game.sfx.unlock();
+  if (game.phase === "intro" || game.phase === "battle") game.debugPhase("lose");
 });
 panel.show(game.demo);
 canvas.addEventListener("pointerdown", () => {

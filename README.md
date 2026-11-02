@@ -83,6 +83,8 @@ Mỗi trùm có màn "chiếm Trái Đất" riêng: số phận người xem (bo
 | Hành Tinh Hủy Diệt | bị hất văng | đất nứt, dung nham phát sáng | THÀNH PHỐ BỊ THIÊU RỤI! 🌋 | dung nham nguội |
 | Rồng Không Gian | bị hơi thở thổi bay | rồng đáp xuống phố, kính màn hình nứt vỡ | RỒNG ĐÃ THỐNG TRỊ TRÁI ĐẤT! 🐉 | vết nứt liền |
 
+Xem nhanh: bấm nút **💀 Cho thua** ở chế độ demo (hoặc phím `K`) khi đang đánh, kết hợp **☠ Gọi trùm** để duyệt lần lượt cả 12 cảnh.
+
 Những trùm ở lại (vàng, kén, pha lê) giữ người xem tại chỗ suốt màn thua; sang màn nghỉ họ vỡ vỏ bung tia lửa rồi trở lại bình thường.
 
 ## Đồ hoạ
