@@ -3529,7 +3529,7 @@ export class Game {
    * (lỡ phát trang demo lên live mà không có nhãn = tương tác giả, vi phạm chính sách live).
    */
   private drawDemoBadge(ctx: CanvasRenderingContext2D) {
-    const msg = this.demo ? "CHẾ ĐỘ THỬ · người xem & quà đều là giả lập" : `CÓ ${this.simulatedPlayers} BOT MÔ PHỎNG · không phải người xem thật`;
+    const msg = this.demo ? "CHẾ ĐỘ THỬ · người xem & quà đều là giả lập" : `CÓ ${this.simulatedPlayers} NHÂN VẬT MÔ PHỎNG`;
     ctx.font = font(800, 26);
     const w = ctx.measureText(msg).width + 56;
     const y = 112;

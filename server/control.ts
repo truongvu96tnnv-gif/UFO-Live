@@ -52,7 +52,7 @@ export class SimulatedPlayers {
     this.users.length = Math.min(count, this.users.length);
     while (this.users.length < count) {
       const n = this.users.length + 1;
-      const user = { id: `sim:${n}`, name: `${BOT_NAMES[n - 1]} · BOT`, avatar: `demo:${n * 47 % 360}` };
+      const user = { id: `sim:${n}`, name: BOT_NAMES[n - 1], avatar: `demo:${n * 47 % 360}` };
       this.users.push({ user, nextAt: this.time + 0.2 + this.random() * 2.8, pace: 0.7 + this.random() * 0.8, chatIndex: n % BOT_CHATS.length });
       this.emit({ type: "join", user });
     }
