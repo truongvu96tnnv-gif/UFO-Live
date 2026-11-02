@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       "/ws": { target: BRIDGE.replace(/^http/, "ws"), ws: true },
       "/avatar": BRIDGE,
+      "/api": BRIDGE,
+      "/health": BRIDGE,
+      "/control": BRIDGE,
     },
   },
   // mode "embed": nhúng mọi ảnh & font vào JS/CSS → scripts/embed.mjs gộp thành 1 file HTML chạy offline

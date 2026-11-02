@@ -201,7 +201,7 @@ Khi tài khoản chưa dùng được LIVE Studio: chạy bridge trên máy tín
 
 Game đã được chỉnh để giảm rủi ro bị hạn chế / tắt kiếm tiền:
 
-- **Không có tương tác giả trên live thật.** Khi đang nối bridge TikTok (không có `?demo=1`), mọi phím tạo tương tác giả (L C E G F S J, quà 1–8) và ép kết quả (K N D) bị **khoá**; không bật được người xem giả. Chế độ demo luôn có nhãn đỏ *CHẾ ĐỘ THỬ · người xem & quà đều là giả lập* ở đầu màn hình — **không phát trang demo lên live**.
+- **Phân biệt tương tác thật và mô phỏng.** Khi đang nối bridge TikTok (không có `?demo=1`), các phím tạo tương tác giả (L C E G F S J, quà 1–8) và ép kết quả (K N D) vẫn bị **khoá**. Người vận hành có thể bật BOT được gắn nhãn rõ qua `/control`; BOT không tạo quà trả phí và không làm tăng thống kê TikTok thật. Chế độ demo luôn có nhãn đỏ *CHẾ ĐỘ THỬ · người xem & quà đều là giả lập* ở đầu màn hình — **không phát trang demo lên live**.
 - **Lọc chữ người xem** (`src/live/filter.ts`): bình luận chửi tục (có dấu, không dấu, viết tắt, chèn dấu chấm), miệt thị vùng miền, số điện thoại, link, mời Zalo/Telegram/inbox → không hiện chữ (vẫn tính là bắn). Tên vi phạm hiện thành *Người xem #xxxx*. Thêm từ cấm riêng bằng `?ban=…`, tắt hẳn chữ bình luận bằng `?bubbles=0`.
 - **Không hiện mục tiêu xu.** Thanh năng lượng chỉ hiện %, ai tương tác cũng nạp được; thông báo quà chỉ ghi tên quà & vũ khí, không ghi số xu.
 - **Vẫn cần người dẫn**: bật camera hoặc micro và dẫn trực tiếp — live chỉ có màn hình game chạy một mình dễ bị coi là nội dung kém chất lượng.
@@ -235,3 +235,11 @@ server/index.ts        bridge TikTok → WebSocket, proxy ảnh, phục vụ dis
 ### Thời gian hiển thị người xem
 
 Nhân vật ẩn sau 2 phút không nhận tương tác hoặc cập nhật hiện diện từ TikTok; có tín hiệu mới sẽ hiện lại. Connector không cung cấp sự kiện rời phòng theo từng người đáng tin cậy, nên đây là thời hạn hoạt động, không phải danh sách người đang xem chính xác. Người xem im lặng cũng có thể bị ẩn. Bridge không gửi lại người xem đã hết hạn khi tải lại trang; khi live kết thúc, danh sách nhân vật được xoá, bảng điểm vẫn giữ.
+
+### Màn điều khiển riêng
+
+Mở `http://localhost:8787/control` trong trình duyệt riêng; OBS vẫn dùng `http://localhost:8787/` (không thêm `?demo=1`). Trang điều khiển cho phép kết nối/đổi kênh TikTok, ngắt kết nối, theo dõi người xem và tương tác thật, bật/tắt âm thanh và nhạc nền.
+
+Có thể thêm 0–20 **BOT mô phỏng**, chọn 3 nhịp tương tác và tắt toàn bộ BOT ngay. Mô phỏng chạy tập trung tại bridge nên mở nhiều màn hình không làm nhân đôi số sự kiện. BOT có tên và nhãn mô phỏng trên game, chỉ tạo tim (không giả lập quà trả phí), không được cộng vào số người xem hoặc thống kê tương tác TikTok. BOT tham gia chiến đấu trong game; bảng điểm có thể chứa tên BOT. Thiết lập áp dụng cho các màn hình đang kết nối và được gửi lại khi tải trang; khởi động lại bridge sẽ tắt mô phỏng.
+
+Mỗi gói tim tạo tối đa 12 tia laser, phát đầu ngay và cách nhau 45 ms, tổng sát thương bằng số tim × sát thương mỗi tim. App không thể loại bỏ độ trễ trước khi TikTok gửi gói sự kiện.

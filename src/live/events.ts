@@ -11,7 +11,16 @@ export interface LiveUser {
 
 export const PRESENCE_TTL_MS = 120_000;
 
+export interface ControlSettings {
+  simulatedPlayers: number;
+  intensity: number;
+  muted: boolean;
+  music: boolean;
+}
+
 export type LiveEvent =
+  | { type: "control"; settings: ControlSettings }
+  | { type: "remove"; ids: string[] }
   | { type: "presence"; user: LiveUser; remainingMs?: number }
   | { type: "join"; user: LiveUser }
   | { type: "like"; user: LiveUser; count: number }

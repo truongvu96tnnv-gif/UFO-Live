@@ -1,6 +1,7 @@
 import { cleanChat, cleanName } from "../live/filter";
 import { PRESENCE_TTL_MS } from "../live/events";
 import type { LiveEvent, LiveUser } from "../live/events";
+import { likeBurst } from "./like-burst";
 import { Avatars } from "./avatars";
 import type { Balance } from "./balance";
 import { font } from "./font";
@@ -339,6 +340,7 @@ export class Game {
 
   status = "";
   demo = false;
+  simulatedPlayers = 0;
   /** hiện chữ bình luận trên bong bóng (?bubbles=0 để tắt hẳn) */
   showChat = true;
 
@@ -654,6 +656,20 @@ export class Game {
   // ================= sự kiện live =================
 
   handle(e: LiveEvent) {
+    if (e.type === "control") {
+      this.simulatedPlayers = e.settings.simulatedPlayers;
+      this.sfx.muted = e.settings.muted;
+      this.sfx.musicOn = e.settings.music;
+      return;
+    }
+    if (e.type === "remove") {
+      const ids = new Set(e.ids);
+      this.people = this.people.filter(p => !ids.has(p.user.id));
+      this.shots = this.shots.filter(s => !ids.has(s.user.id));
+      for (const id of ids) this.active.delete(id);
+      if (this.grab && ids.has(this.grab.p.user.id)) this.grab = null;
+      return;
+    }
     if (e.type === "status") {
       if (e.state === "offline") {
         this.people = [];
@@ -677,8 +693,10 @@ export class Game {
       case "join":
         break;
       case "like": {
-        const dmg = Math.max(1, e.count) * this.bal.likeDmg;
-        if (fighting) this.fire("laser", user, dmg);
+        if (fighting) {
+          for (const shot of likeBurst(e.count, this.bal.likeDmg)) this.fire("laser", user, shot.damage, shot.delay);
+          this.sparks(...this.originFor(user), 4, 160);
+        }
         else this.sparks(...this.personPos(person), 3, 160);
         this.addFund(user, Math.max(1, e.count) * ENERGY.like);
         break;
@@ -3476,7 +3494,7 @@ export class Game {
       }
     }
     if (this.status) text(ctx, `● ${this.status}`, 24, H - 24, 18, "#ff8a8a", "left", 700);
-    if (this.demo) this.drawDemoBadge(ctx);
+    if (this.demo || this.simulatedPlayers > 0) this.drawDemoBadge(ctx);
   }
 
   /** Thước đo độ cao bên trái: UFO tụt dần về vạch đỏ mặt đất */
@@ -3511,7 +3529,7 @@ export class Game {
    * (lỡ phát trang demo lên live mà không có nhãn = tương tác giả, vi phạm chính sách live).
    */
   private drawDemoBadge(ctx: CanvasRenderingContext2D) {
-    const msg = "CHẾ ĐỘ THỬ · người xem & quà đều là giả lập";
+    const msg = this.demo ? "CHẾ ĐỘ THỬ · người xem & quà đều là giả lập" : `CÓ ${this.simulatedPlayers} BOT MÔ PHỎNG · không phải người xem thật`;
     ctx.font = font(800, 26);
     const w = ctx.measureText(msg).width + 56;
     const y = 112;

@@ -19,12 +19,13 @@ import { fileURLToPath } from "node:url";
 import { ControlEvent, TikTokLiveConnection, WebcastEvent } from "tiktok-live-connector";
 import { WebSocket, WebSocketServer } from "ws";
 import { PRESENCE_TTL_MS } from "../src/live/events";
+import { DEFAULT_CONTROL, parseControl, SimulatedPlayers } from "./control";
 import { bindLiveEvents } from "./live";
 import type { LiveEvent, LiveUser } from "../src/live/events";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? "127.0.0.1";
-const USERNAME = (process.argv[2] ?? process.env.TIKTOK_USERNAME ?? "").replace(/^@/, "").trim();
+let USERNAME = (process.argv[2] ?? process.env.TIKTOK_USERNAME ?? "").replace(/^@/, "").trim();
 const SIGN_API_KEY = process.env.SIGN_API_KEY || undefined;
 const DIST = resolve(fileURLToPath(new URL("../dist", import.meta.url)));
 
@@ -52,12 +53,20 @@ setInterval(pruneRecent, 10_000).unref();
 const VERBOSE = process.env.LOG !== "0";
 const ICON: Record<string, string> = { join: "👋", like: "❤️", chat: "💬", gift: "🎁", envelope: "📦", follow: "➕", share: "↗" };
 
+let control = { ...DEFAULT_CONTROL };
+const simulation = new SimulatedPlayers(broadcast);
+setInterval(() => simulation.tick(0.1), 100).unref();
+
 function broadcast(e: LiveEvent) {
-  if (e.type === "status") {
+  if (e.type === "control") {
+    // Settings are replayed separately to new game displays.
+  } else if (e.type === "remove") {
+    for (const id of e.ids) recent.delete(id);
+  } else if (e.type === "status") {
     lastStatus = e;
     if (e.state === "offline") recent.clear();
   } else {
-    if (e.type !== "presence") {
+    if (e.type !== "presence" && !e.user.id.startsWith("sim:")) {
       counts[e.type] = (counts[e.type] ?? 0) + 1;
       lastEventAt = new Date().toISOString();
     }
@@ -66,7 +75,7 @@ function broadcast(e: LiveEvent) {
     recent.delete(e.user.id);
     recent.set(e.user.id, { user: { ...e.user, avatar: e.user.avatar || previous?.user.avatar }, at: Date.now() });
     if (recent.size > 30) recent.delete(recent.keys().next().value!);
-    if (VERBOSE && e.type !== "presence") {
+    if (VERBOSE && e.type !== "presence" && !e.user.id.startsWith("sim:")) {
       const extra = e.type === "chat" ? `: ${e.text}` : e.type === "like" ? ` ×${e.count}` : e.type === "gift" ? `: ${e.gift} ×${e.count} (${e.coins} xu)` : e.type === "envelope" ? `: rương ${e.coins} xu` : "";
       console.log(`  ${ICON[e.type] ?? "•"} ${e.user.name}${extra}`);
     }
@@ -77,6 +86,7 @@ function broadcast(e: LiveEvent) {
 
 wss.on("connection", (ws) => {
   ws.send(JSON.stringify(lastStatus));
+  ws.send(JSON.stringify({ type: "control", settings: control }));
   pruneRecent();
   const back = [...recent.values()].map(({ user, at }) => ({ type: "presence", user, remainingMs: Math.max(0, PRESENCE_TTL_MS - (Date.now() - at)) }) as LiveEvent);
   if (back.length) ws.send(JSON.stringify(back));
@@ -101,6 +111,11 @@ const MIME: Record<string, string> = {
 
 async function route(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? "/", "http://local");
+  if (url.pathname === "/api/control") return controlRoute(req, res);
+  if (url.pathname === "/control" || url.pathname === "/control/") {
+    res.writeHead(302, { location: "/control.html" }).end();
+    return;
+  }
   if (url.pathname === "/avatar") return avatar(url.searchParams.get("u") ?? "", res);
   if (url.pathname === "/emit" && req.method === "POST") return emit(req, res);
   if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, clients: wss.clients.size, viewers: viewerCount, events: counts, lastEventAt }));
@@ -115,7 +130,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   let file = resolve(join(DIST, rel || "index.html"));
   if (!file.startsWith(DIST)) return void res.writeHead(403).end();
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(DIST, "index.html");
-  res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream", "cache-control": file.endsWith("index.html") ? "no-cache" : "max-age=31536000" });
+  res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream", "cache-control": (file.endsWith(".html") || file.endsWith("control.js")) ? "no-cache" : "max-age=31536000" });
   createReadStream(file).pipe(res);
 }
 
@@ -204,15 +219,18 @@ type Loose = any;
 let conn: TikTokLiveConnection | null = null;
 let viewerCount = 0;
 let retry = 5000;
+let generation = 0;
 
 async function connectTikTok() {
   if (!USERNAME) return;
+  const attempt = ++generation;
   conn?.removeAllListeners();
   try {
     await conn?.disconnect();
   } catch {
     /* đã đóng */
   }
+  if (attempt !== generation) return;
   const c = new TikTokLiveConnection(USERNAME, { signApiKey: SIGN_API_KEY, enableExtendedGiftInfo: false });
   conn = c;
   bindLiveEvents(c, broadcast, (count) => { viewerCount = count; });
@@ -230,10 +248,12 @@ async function connectTikTok() {
   broadcast({ type: "status", state: "connecting", detail: `@${USERNAME}` });
   try {
     const state: Loose = await c.connect();
+    if (conn !== c || attempt !== generation) return;
     retry = 5000;
     console.log(`[tiktok] đã kết nối @${USERNAME} (room ${state?.roomId ?? "?"})`);
     broadcast({ type: "status", state: "connected" });
   } catch (err: Loose) {
+    if (conn !== c || attempt !== generation) return;
     const msg = String(err?.message ?? err);
     console.error(`[tiktok] kết nối thất bại: ${msg}`);
     broadcast({ type: "status", state: /offline|not.*live/i.test(msg) ? "offline" : "error", detail: msg.slice(0, 80) });
@@ -243,7 +263,7 @@ async function connectTikTok() {
 
 let pending: NodeJS.Timeout | null = null;
 function schedule() {
-  if (pending) return;
+  if (pending || !USERNAME) return;
   console.log(`[tiktok] thử lại sau ${retry / 1000}s`);
   pending = setTimeout(() => {
     pending = null;
@@ -254,7 +274,54 @@ function schedule() {
 
 server.listen(PORT, HOST, () => {
   console.log(`UFO Live bridge: http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
+  console.log(`  Điều khiển: http://localhost:${PORT}/control`);
   console.log(`  Browser Source (1080×1920): http://localhost:${PORT}/`);
   if (USERNAME) void connectTikTok();
   else console.log("  Chưa đặt TIKTOK_USERNAME — chỉ phục vụ trang game và POST /emit.");
 });
+
+async function controlRoute(req: IncomingMessage, res: ServerResponse) {
+  const respond = (code: number, data: unknown) => res.writeHead(code, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(data));
+  const snapshot = () => ({ settings: control, username: USERNAME, status: lastStatus, viewers: viewerCount, clients: wss.clients.size, events: counts, lastEventAt });
+  if (req.method === "GET") return void respond(200, snapshot());
+  if (req.method !== "POST") return void respond(405, { error: "Method not allowed" });
+  if (!req.headers["content-type"]?.startsWith("application/json")) return void respond(415, { error: "JSON required" });
+  if (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return void respond(403, { error: "Origin not allowed" });
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 4096) return void respond(413, { error: "Request too large" });
+  }
+  try {
+    const data = JSON.parse(body);
+    if (data.action === "settings") {
+      control = parseControl(data.settings, control);
+      broadcast({ type: "control", settings: control });
+      simulation.configure(control.simulatedPlayers, control.intensity);
+    } else if (data.action === "connect") {
+      if (typeof data.username !== "string" || !/^@?[a-zA-Z0-9_.]{1,64}$/.test(data.username.trim())) throw new Error("Nhập username TikTok, không nhập đường dẫn");
+      USERNAME = data.username.trim().replace(/^@/, "");
+      if (pending) clearTimeout(pending);
+      pending = null;
+      retry = 5000;
+      broadcast({ type: "remove", ids: [...recent.keys()].filter(id => !id.startsWith("sim:")) });
+      viewerCount = 0;
+      void connectTikTok();
+    } else if (data.action === "disconnect") {
+      USERNAME = "";
+      generation++;
+      if (pending) clearTimeout(pending);
+      pending = null;
+      const old = conn;
+      conn = null;
+      old?.removeAllListeners();
+      await old?.disconnect();
+      viewerCount = 0;
+      broadcast({ type: "remove", ids: [...recent.keys()].filter(id => !id.startsWith("sim:")) });
+      broadcast({ type: "status", state: "idle", detail: "đã ngắt kết nối" });
+    } else throw new Error("Lệnh không hợp lệ");
+    respond(200, snapshot());
+  } catch (err) {
+    respond(400, { error: err instanceof Error ? err.message : "Lệnh không hợp lệ" });
+  }
+}
