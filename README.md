@@ -201,7 +201,7 @@ Khi tài khoản chưa dùng được LIVE Studio: chạy bridge trên máy tín
 
 Game đã được chỉnh để giảm rủi ro bị hạn chế / tắt kiếm tiền:
 
-- **Không có tương tác giả trên live thật.** Khi đang nối bridge TikTok (không có `?demo=1`), mọi phím tạo tương tác giả (L C E G F S J, quà 1–8) và ép kết quả (K N D) bị **khoá**; không bật được người xem giả. Chế độ demo luôn có nhãn đỏ *CHẾ ĐỘ THỬ · người xem & quà đều là giả lập* ở đầu màn hình — **không phát trang demo lên live**.
+- **Phân biệt tương tác thật và mô phỏng.** Khi đang nối bridge TikTok (không có `?demo=1`), các phím tạo tương tác giả (L C E G F S J, quà 1–8) và ép kết quả (K N D) vẫn bị **khoá**. Người vận hành có thể bật nhân vật mô phỏng và theo dõi số lượng riêng qua `/control`; BOT không tạo quà trả phí và không làm tăng thống kê TikTok thật. Chế độ demo luôn có nhãn đỏ *CHẾ ĐỘ THỬ · người xem & quà đều là giả lập* ở đầu màn hình — **không phát trang demo lên live**.
 - **Lọc chữ người xem** (`src/live/filter.ts`): bình luận chửi tục (có dấu, không dấu, viết tắt, chèn dấu chấm), miệt thị vùng miền, số điện thoại, link, mời Zalo/Telegram/inbox → không hiện chữ (vẫn tính là bắn). Tên vi phạm hiện thành *Người xem #xxxx*. Thêm từ cấm riêng bằng `?ban=…`, tắt hẳn chữ bình luận bằng `?bubbles=0`.
 - **Không hiện mục tiêu xu.** Thanh năng lượng chỉ hiện %, ai tương tác cũng nạp được; thông báo quà chỉ ghi tên quà & vũ khí, không ghi số xu.
 - **Vẫn cần người dẫn**: bật camera hoặc micro và dẫn trực tiếp — live chỉ có màn hình game chạy một mình dễ bị coi là nội dung kém chất lượng.
@@ -231,3 +231,23 @@ src/live/              kiểu sự kiện, WebSocket client, người xem giả 
 src/ui/panel.ts        thanh nút + bảng tặng quà (chỉ chế độ demo)
 server/index.ts        bridge TikTok → WebSocket, proxy ảnh, phục vụ dist/
 ```
+
+### Thời gian hiển thị người xem
+
+Nhân vật không bị xoá chỉ vì im lặng hay không thả tim. Connector không cung cấp sự kiện rời phòng theo từng người đáng tin cậy, vì vậy danh sách nhân vật là người đã tham gia, không phải danh sách người đang xem chính xác. Bridge giữ tối đa 30 người gần nhất để gửi lại khi tải trang; game cũng giới hạn 30 nhân vật để giữ hiệu năng, người mới có thể thay người lâu không tương tác khi đầy. Khi live kết thúc, đổi/ngắt kênh hoặc tắt BOT, nhân vật tương ứng được dọn. Bảng điểm vẫn giữ. Khoảng 2 phút hoạt động chỉ dùng để cân bằng độ khó, không dùng làm bằng chứng rời phòng.
+
+### Màn điều khiển riêng
+
+Mở `http://localhost:8787/control` trong trình duyệt riêng; OBS vẫn dùng `http://localhost:8787/` (không thêm `?demo=1`). Trang điều khiển cho phép kết nối/đổi kênh TikTok, ngắt kết nối, theo dõi người xem và tương tác thật, bật/tắt âm thanh và nhạc nền.
+
+Có thể thêm 0–20 **BOT mô phỏng**, chọn 3 nhịp tương tác và tắt toàn bộ BOT ngay. Mô phỏng chạy tập trung tại bridge nên mở nhiều màn hình không làm nhân đôi số sự kiện. Nhân vật chỉ hiện tên riêng, không có hậu tố BOT hay thông báo mô phỏng trên màn hình game. Mỗi nhân vật có nhịp tim riêng, bình luận ngắn và khoảng nghỉ (không giả lập quà trả phí). Số lượng mô phỏng được theo dõi riêng trong trang điều khiển, không cộng vào số người xem hoặc thống kê tương tác TikTok. BOT tham gia chiến đấu trong game; bảng điểm có thể chứa tên của nhân vật mô phỏng. Thiết lập áp dụng cho các màn hình đang kết nối và được gửi lại khi tải trang; khởi động lại bridge sẽ tắt mô phỏng.
+
+Mỗi gói tim tạo tối đa 12 tia laser, phát đầu ngay và cách nhau 45 ms, tổng sát thương bằng số tim × sát thương mỗi tim. App không thể loại bỏ độ trễ trước khi TikTok gửi gói sự kiện.
+
+BOT tự tắt khi số người xem thật TikTok báo về **vượt 20** (20 vẫn được bật, 21 trở lên sẽ tắt). Khi người xem giảm, BOT không tự bật lại; có thể bật thủ công khi còn tối đa 20 người xem. Thời điểm tắt phụ thuộc lúc TikTok gửi cập nhật số người xem.
+
+### Gọi boss từ trang điều khiển
+
+Trong `/control`, chọn một trong 12 boss/UFO rồi bấm **Gọi boss ngay**. Lệnh thay trận hiện tại bằng trận mới có màn xuất hiện của boss, dọn đạn và kỹ năng cũ, giữ tổng tỉ số/chuỗi thắng. Mọi màn hình game đang kết nối đều nhận lệnh. Nếu chưa có màn hình game, API báo lỗi; lệnh không được lưu để phát lại khi tải trang.
+
+Control chỉ báo gọi boss thành công khi màn hình game xác nhận đã thực thi. Nếu quá 4 giây không xác nhận, control hiển thị lỗi và hướng dẫn tải lại bản game. Trang demo `?demo=1` khi mở qua bridge cũng nhận lệnh gọi boss; `?ws=0` và file HTML offline không nối bridge thì không nhận lệnh.

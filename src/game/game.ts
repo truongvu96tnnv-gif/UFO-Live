@@ -1,5 +1,7 @@
 import { cleanChat, cleanName } from "../live/filter";
 import type { LiveEvent, LiveUser } from "../live/events";
+import { isBossId } from "../live/boss-catalog";
+import { likeBurst } from "./like-burst";
 import { Avatars } from "./avatars";
 import type { Balance } from "./balance";
 import { font } from "./font";
@@ -337,6 +339,7 @@ export class Game {
 
   status = "";
   demo = false;
+  simulatedPlayers = 0;
   /** hiện chữ bình luận trên bong bóng (?bubbles=0 để tắt hẳn) */
   showChat = true;
 
@@ -344,7 +347,7 @@ export class Game {
     const bg = makeBackground();
     this.bg = bg.img;
     this.towers = bg.towers;
-    this.scene = new Scene(this.towers, this.glows, (x) => this.sfx.flak(x));
+    this.scene = new Scene(this.towers, this.glows);
     this.load();
     this.loadArts();
     for (const id of Object.keys(BOSS_ANIM) as BossId[]) this.anim(id);
@@ -490,6 +493,30 @@ export class Game {
     const d = BOSSES[this.forcedBoss];
     this.toast(`Vòng sau: ${d.name}`, d.power || "UFO thường", d.color);
     return d.name;
+  }
+
+  /** Operator command: start a fresh encounter with its entrance animation. */
+  summonBoss(id: BossId) {
+    if (!isBossId(id)) return;
+    this.shots = [];
+    this.beams = [];
+    this.crates = [];
+    this.enemyShots = [];
+    this.breathT = -99;
+    this.spitT = -99;
+    this.webT0 = -99;
+    this.muzzle = 0;
+    this.beam = 0;
+    this.devour = null;
+    this.sfx.chargeStop();
+    this.banners = [];
+    this.floaters = [];
+    for (const person of this.people) {
+      person.suck = -1;
+      person.fate = null;
+    }
+    this.forcedBoss = id;
+    this.startRound();
   }
 
   /** Bắt đầu ngay 1 trận với trùm chỉ định (dùng để thử) */
@@ -652,7 +679,30 @@ export class Game {
   // ================= sự kiện live =================
 
   handle(e: LiveEvent) {
+    if (e.type === "summonBoss") {
+      this.summonBoss(e.bossId);
+      return;
+    }
+    if (e.type === "control") {
+      this.simulatedPlayers = e.settings.simulatedPlayers;
+      this.sfx.muted = e.settings.muted;
+      this.sfx.musicOn = e.settings.music;
+      return;
+    }
+    if (e.type === "remove") {
+      const ids = new Set(e.ids);
+      this.people = this.people.filter(p => !ids.has(p.user.id));
+      this.shots = this.shots.filter(s => !ids.has(s.user.id));
+      for (const id of ids) this.active.delete(id);
+      if (this.grab && ids.has(this.grab.p.user.id)) this.grab = null;
+      return;
+    }
     if (e.type === "status") {
+      if (e.state === "offline") {
+        this.people = [];
+        this.active.clear();
+        this.grab = null;
+      }
       this.status = e.state === "connected" || e.state === "idle" ? "" : `${e.state}${e.detail ? ": " + e.detail : ""}`;
       return;
     }
@@ -661,6 +711,7 @@ export class Game {
     this.active.set(user.id, this.time);
     const person = this.ensurePerson(user);
     person.seen = this.time;
+    if (e.type === "presence") return;
     person.pulse = 1;
     const fighting = this.phase === "battle" && this.ufoAlive && this.hp > 0;
 
@@ -668,8 +719,10 @@ export class Game {
       case "join":
         break;
       case "like": {
-        const dmg = Math.max(1, e.count) * this.bal.likeDmg;
-        if (fighting) this.fire("laser", user, dmg);
+        if (fighting) {
+          for (const shot of likeBurst(e.count, this.bal.likeDmg)) this.fire("laser", user, shot.damage, shot.delay);
+          this.sparks(...this.originFor(user), 4, 160);
+        }
         else this.sparks(...this.personPos(person), 3, 160);
         this.addFund(user, Math.max(1, e.count) * ENERGY.like);
         break;
@@ -863,7 +916,7 @@ export class Game {
   private ensurePerson(user: LiveUser): Person {
     const hit = this.people.find((p) => p.user.id === user.id);
     if (hit) {
-      hit.user = user;
+      hit.user = { ...user, avatar: user.avatar || hit.user.avatar };
       return hit;
     }
     if (this.people.length >= MAX_PEOPLE) {
@@ -878,7 +931,7 @@ export class Game {
     const z = 0.62 + Math.random() * 0.42;
     const p: Person = {
       user,
-      x0: Math.random() * (W + 240),
+      x0: Math.random() * W,
       y0: PEOPLE_Y0 + (z - 0.62) * 360 + Math.random() * 60,
       z,
       v: (10 + 22 * z) * (Math.random() < 0.5 ? 1 : -1),
@@ -898,10 +951,23 @@ export class Game {
     return p;
   }
 
+  private visible = { left: 0, top: 0, right: W, bottom: H };
+
+  setVisibleBounds(left: number, top: number, right: number, bottom: number) {
+    this.visible = { left, top, right, bottom };
+  }
+
   private personPos(p: Person): [number, number] {
-    const span = W + 240;
-    const x = ((((p.x0 + p.v * this.time) % span) + span) % span) - 120;
-    const y = Math.min(PEOPLE_Y1 + 40, p.y0 + Math.sin(this.time * 0.8 + p.p) * 10);
+    // Leave room for the bubble's pulse, name and camera shake at the edges.
+    const margin = BUBBLE_R * p.z * 1.5 + 24;
+    const left = Math.min(this.visible.left + margin, (this.visible.left + this.visible.right) / 2);
+    const right = Math.max(left, this.visible.right - margin);
+    const span = right - left;
+    const travel = span > 0 ? ((p.x0 + p.v * this.time) % (2 * span) + 2 * span) % (2 * span) : 0;
+    const x = left + (travel <= span ? travel : 2 * span - travel);
+    const top = Math.min(this.visible.top + margin, (this.visible.top + this.visible.bottom) / 2);
+    const bottom = Math.max(top, this.visible.bottom - margin - 24);
+    const y = clamp(Math.min(PEOPLE_Y1 + 40, p.y0 + Math.sin(this.time * 0.8 + p.p) * 10), top, bottom);
     return [x, y];
   }
 
@@ -943,7 +1009,6 @@ export class Game {
       // Phi Thuyền Mẹ: gần nửa số đạn tự nhắm UFO con đang lao xuống
       drone: this.drones.length && kind !== "mega" && Math.random() < 0.45 ? pick(this.drones.filter((d) => !d.dead)) ?? null : null,
     });
-    this.scene.pulse(kind === "laser" ? 0.6 : 1);
     if (kind === "laser") this.sfx.laser(sx, this.gunOf(user), this.golden && !this.giftCtx);
     else if (fx === "rose" || (kind === "rocket" && !this.giftCtx)) this.sfx.whistle(sx, fx === "rose" ? 1 : 0.7);
     else if (fx === "confetti") {
@@ -1083,8 +1148,7 @@ export class Game {
     this.updateFx(dt);
     this.enemyShots = this.enemyShots.filter((e) => this.time - e.t0 < 0.5);
     this.sfx.update({ phase: this.phase, progress: this.progress, boss: this.bossDef.id, bossKind: this.bossDef.kind, ufoAlive: this.ufoAlive, golden: this.golden });
-    const geo = this.geo;
-    this.scene.update(dt, { x: this.ux, y: this.uy + geo.cy, rx: geo.rx, ry: geo.ry, alive: this.ufoAlive && this.uy > 0, fighting: this.phase === "battle" });
+    this.scene.update(dt);
     for (const p of this.people) p.pulse = Math.max(0, p.pulse - dt * 2.5);
   }
 
@@ -1499,7 +1563,10 @@ export class Game {
     const age = this.time - p.born;
     if (age < 0) return;
     if (age < 0.6) r *= age < 0.2 ? age / 0.2 : 1 + 0.12 * Math.sin((age - 0.2) * 18) * Math.exp(-(age - 0.2) * 7);
-    if (x < -r * 2 || x > W + r * 2) return;
+    const cx = (this.visible.left + this.visible.right) / 2;
+    const cy = (this.visible.top + this.visible.bottom) / 2;
+    x = clamp(x, Math.min(cx, this.visible.left + r + 24), Math.max(cx, this.visible.right - r - 24));
+    y = clamp(y, Math.min(cy, this.visible.top + r + 24), Math.max(cy, this.visible.bottom - r - 40));
 
     if (p.fate === "cocoon" && fateU >= 0) {
       // sợi tơ treo kén

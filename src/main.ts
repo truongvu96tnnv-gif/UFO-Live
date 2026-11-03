@@ -37,6 +37,9 @@ function fit() {
   const vw = document.documentElement.clientWidth || innerWidth;
   const vh = document.documentElement.clientHeight || innerHeight;
   const s = cover ? Math.max(vw / W, vh / H) : Math.min(vw / W, vh / H);
+  const left = Math.max(0, (W - vw / s) / 2);
+  const top = Math.max(0, (H - vh / s) / 2);
+  game.setVisibleBounds(left, top, W - left, H - top);
   canvas.style.width = `${W * s}px`;
   canvas.style.height = `${H * s}px`;
   canvas.style.left = `${(vw - W * s) / 2}px`;
@@ -65,9 +68,13 @@ const liveMode = q.get("ws") !== "0" && !demoOn;
 const fakeOk = !liveMode || q.get("keys") === "1";
 game.showChat = q.get("bubbles") !== "0";
 addBannedWords(q.get("ban"));
-if (liveMode) {
+if (q.get("ws") !== "0" && (location.protocol !== "file:" || q.has("ws"))) {
   const url = q.get("ws") ?? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
-  connectBridge(url, sink);
+  connectBridge(url, (event) => {
+    // Hosted demo pages still receive operator commands, without ingesting real interactions.
+    if (demoOn && event.type !== "control" && event.type !== "summonBoss") return;
+    sink(event);
+  });
 }
 
 // ---------------- phím tắt cho người vận hành (OBS: chuột phải Browser Source → Interact) ----------------

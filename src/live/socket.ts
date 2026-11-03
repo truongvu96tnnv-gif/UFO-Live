@@ -13,11 +13,17 @@ export function connectBridge(url: string, sink: EventSink) {
       wait = 1000;
     };
     ws.onmessage = (m) => {
-      try {
-        const data = JSON.parse(String(m.data)) as LiveEvent | LiveEvent[];
-        for (const e of Array.isArray(data) ? data : [data]) if (e && typeof e === "object" && "type" in e) sink(e);
-      } catch {
-        /* bỏ qua gói hỏng */
+      let data: LiveEvent | LiveEvent[];
+      try { data = JSON.parse(String(m.data)); } catch { return; }
+      for (const e of Array.isArray(data) ? data : [data]) {
+        if (!e || typeof e !== "object" || !("type" in e)) continue;
+        try {
+          sink(e);
+          if (e.type === "summonBoss" && e.requestId) ws?.send(JSON.stringify({ type: "commandResult", requestId: e.requestId, ok: true }));
+        } catch (error) {
+          console.error("Không xử lý được sự kiện game", error);
+          if (e.type === "summonBoss" && e.requestId) ws?.send(JSON.stringify({ type: "commandResult", requestId: e.requestId, ok: false }));
+        }
       }
     };
     ws.onclose = () => {

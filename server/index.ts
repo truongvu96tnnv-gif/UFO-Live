@@ -18,11 +18,15 @@ import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ControlEvent, TikTokLiveConnection, WebcastEvent } from "tiktok-live-connector";
 import { WebSocket, WebSocketServer } from "ws";
+import { sendBossCommand } from "./boss-command";
+import { BOSS_NAMES, isBossId } from "../src/live/boss-catalog";
+import { DEFAULT_CONTROL, parseControl, SimulatedPlayers } from "./control";
+import { bindLiveEvents } from "./live";
 import type { LiveEvent, LiveUser } from "../src/live/events";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? "127.0.0.1";
-const USERNAME = (process.argv[2] ?? process.env.TIKTOK_USERNAME ?? "").replace(/^@/, "").trim();
+let USERNAME = (process.argv[2] ?? process.env.TIKTOK_USERNAME ?? "").replace(/^@/, "").trim();
 const SIGN_API_KEY = process.env.SIGN_API_KEY || undefined;
 const DIST = resolve(fileURLToPath(new URL("../dist", import.meta.url)));
 
@@ -41,19 +45,38 @@ let lastStatus: LiveEvent = { type: "status", state: "idle" };
 const counts: Record<string, number> = {};
 let lastEventAt: string | null = null;
 /** người xem gần đây: trang game mở lại / điện thoại tải lại vẫn thấy ngay bong bóng thay vì phòng trống */
+// Silence is not a leave event. Retain the bounded roster until explicit removal or stream end.
 const recent = new Map<string, LiveUser>();
 const VERBOSE = process.env.LOG !== "0";
 const ICON: Record<string, string> = { join: "👋", like: "❤️", chat: "💬", gift: "🎁", envelope: "📦", follow: "➕", share: "↗" };
 
+let control = { ...DEFAULT_CONTROL };
+let botAutoStopped = false;
+const simulation = new SimulatedPlayers(broadcast, () => {
+  control = { ...control, simulatedPlayers: 0 };
+  botAutoStopped = true;
+  broadcast({ type: "control", settings: control });
+});
+setInterval(() => simulation.tick(0.1), 100).unref();
+
 function broadcast(e: LiveEvent) {
-  if (e.type === "status") lastStatus = e;
-  else {
-    counts[e.type] = (counts[e.type] ?? 0) + 1;
-    lastEventAt = new Date().toISOString();
+  if (e.type === "control" || e.type === "summonBoss") {
+    // Settings are replayed separately to new game displays.
+  } else if (e.type === "remove") {
+    for (const id of e.ids) recent.delete(id);
+  } else if (e.type === "status") {
+    lastStatus = e;
+    if (e.state === "offline") recent.clear();
+  } else {
+    if (e.type !== "presence" && !e.user.id.startsWith("sim:")) {
+      counts[e.type] = (counts[e.type] ?? 0) + 1;
+      lastEventAt = new Date().toISOString();
+    }
+    const previous = recent.get(e.user.id);
     recent.delete(e.user.id);
-    recent.set(e.user.id, e.user);
+    recent.set(e.user.id, { ...e.user, avatar: e.user.avatar || previous?.avatar });
     if (recent.size > 30) recent.delete(recent.keys().next().value!);
-    if (VERBOSE) {
+    if (VERBOSE && e.type !== "presence" && !e.user.id.startsWith("sim:")) {
       const extra = e.type === "chat" ? `: ${e.text}` : e.type === "like" ? ` ×${e.count}` : e.type === "gift" ? `: ${e.gift} ×${e.count} (${e.coins} xu)` : e.type === "envelope" ? `: rương ${e.coins} xu` : "";
       console.log(`  ${ICON[e.type] ?? "•"} ${e.user.name}${extra}`);
     }
@@ -64,7 +87,8 @@ function broadcast(e: LiveEvent) {
 
 wss.on("connection", (ws) => {
   ws.send(JSON.stringify(lastStatus));
-  const back = [...recent.values()].map((user) => ({ type: "join", user }) as LiveEvent);
+  ws.send(JSON.stringify({ type: "control", settings: control }));
+  const back = [...recent.values()].map((user) => ({ type: "presence", user }) as LiveEvent);
   if (back.length) ws.send(JSON.stringify(back));
   console.log(`[game] màn hình game kết nối (${wss.clients.size} đang mở)${back.length ? ` — gửi lại ${back.length} người xem gần đây` : ""}`);
 });
@@ -87,6 +111,11 @@ const MIME: Record<string, string> = {
 
 async function route(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? "/", "http://local");
+  if (url.pathname === "/api/control") return controlRoute(req, res);
+  if (url.pathname === "/control" || url.pathname === "/control/") {
+    res.writeHead(302, { location: "/control.html" }).end();
+    return;
+  }
   if (url.pathname === "/avatar") return avatar(url.searchParams.get("u") ?? "", res);
   if (url.pathname === "/emit" && req.method === "POST") return emit(req, res);
   if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, roomId: roomIdNow, roomStatus, clients: wss.clients.size, viewers: viewerCount, events: counts, lastEventAt, tiktokPackets: raw, lastPacketAt }));
@@ -101,7 +130,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   let file = resolve(join(DIST, rel || "index.html"));
   if (!file.startsWith(DIST)) return void res.writeHead(403).end();
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(DIST, "index.html");
-  res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream", "cache-control": file.endsWith("index.html") ? "no-cache" : "max-age=31536000" });
+  res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream", "cache-control": (file.endsWith(".html") || file.endsWith("control.js")) ? "no-cache" : "max-age=31536000" });
   createReadStream(file).pipe(res);
 }
 
@@ -187,45 +216,6 @@ async function avatar(u: string, res: ServerResponse) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = any;
 
-function toUser(u: Loose): LiveUser | null {
-  if (!u) return null;
-  const id = String(u.uniqueId || u.userId || "");
-  if (!id) return null;
-  const pic: string | undefined = u.profilePicture?.urls?.[0] ?? u.profilePictureUrl;
-  return {
-    id,
-    name: String(u.nickname || u.uniqueId || id).slice(0, 60),
-    avatar: pic ? `/avatar?u=${encodeURIComponent(pic)}` : undefined,
-  };
-}
-
-/** combo đang chạy: khoá người+quà+nhóm → repeatCount đã phát */
-const streaks = new Map<string, { n: number; at: number }>();
-
-function onGift(d: Loose) {
-  const user = toUser(d.user);
-  if (!user) return;
-  const giftType = d.giftDetails?.giftType ?? d.giftType;
-  // TikTok gọi trường này là diamondCount nhưng giá trị là giá quà tính bằng xu (Hoa hồng = 1)
-  const coins = Number(d.giftDetails?.diamondCount ?? d.diamondCount ?? 1) || 1;
-  const gift = String(d.giftDetails?.giftName || d.giftName || "Quà");
-  const repeat = Math.max(1, Number(d.repeatCount) || 1);
-  let count = repeat;
-  if (giftType === 1) {
-    const key = `${user.id}:${d.giftId}:${d.groupId ?? ""}`;
-    const prev = streaks.get(key)?.n ?? 0;
-    count = repeat - prev;
-    if (d.repeatEnd) streaks.delete(key);
-    else streaks.set(key, { n: repeat, at: Date.now() });
-  }
-  if (count > 0) broadcast({ type: "gift", user, gift, coins, count });
-}
-
-setInterval(() => {
-  const old = Date.now() - 120_000;
-  for (const [k, v] of streaks) if (v.at < old) streaks.delete(k);
-}, 60_000).unref();
-
 let conn: TikTokLiveConnection | null = null;
 let viewerCount = 0;
 /** chẩn đoán: phòng đang nối, trạng thái phòng (2 = đang live, 4 = đã kết thúc), mọi gói TikTok gửi về theo loại */
@@ -237,20 +227,21 @@ let lastPacketMs = 0;
 let connectedMs = 0;
 let watchdogHits = 0;
 let retry = 5000;
+let generation = 0;
 
 async function connectTikTok() {
   if (!USERNAME) return;
+  const attempt = ++generation;
   conn?.removeAllListeners();
   try {
     await conn?.disconnect();
   } catch {
     /* đã đóng */
   }
+  if (attempt !== generation) return;
   const c = new TikTokLiveConnection(USERNAME, { signApiKey: SIGN_API_KEY, enableExtendedGiftInfo: false });
   conn = c;
-  // danh sách người xem hàng đầu TikTok gửi định kỳ (kèm số người xem): đưa họ vào thành phố ngay,
-  // không cần đợi họ tương tác — người đã ở trong phòng từ trước khi bridge kết nối cũng hiện
-  const seeded = new Set<string>();
+  // chẩn đoán: đếm mọi gói TikTok gửi về (xem /health → tiktokPackets) + canh chừng kết nối không có dữ liệu
   c.on(ControlEvent.DECODED_DATA, (type: string) => {
     if (conn !== c) return;
     if (!raw[type]) console.log(`[tiktok] gói đầu tiên loại ${type}`);
@@ -259,43 +250,7 @@ async function connectTikTok() {
     lastPacketMs = Date.now();
     lastPacketAt = new Date().toISOString();
   });
-  c.on(WebcastEvent.ROOM_USER, (d: Loose) => {
-    viewerCount = Number(d.viewerCount) || viewerCount;
-    for (const t of (d.topViewers ?? []).slice(0, 20)) {
-      const user = toUser(t?.user);
-      if (user && !seeded.has(user.id)) {
-        seeded.add(user.id);
-        broadcast({ type: "join", user });
-      }
-    }
-  });
-  c.on(WebcastEvent.MEMBER, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "join", user });
-  });
-  c.on(WebcastEvent.LIKE, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "like", user, count: Math.max(1, Number(d.likeCount) || 1) });
-  });
-  c.on(WebcastEvent.CHAT, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "chat", user, text: String(d.comment ?? "").slice(0, 200) });
-  });
-  c.on(WebcastEvent.GIFT, onGift);
-  c.on(WebcastEvent.ENVELOPE, (d: Loose) => {
-    // rương xu: người thả nằm khá sâu trong gói tin
-    const user = toUser(d.treasureBoxUser?.user2?.user3?.[0]?.user4?.user ?? d.user);
-    const coins = Number(d.treasureBoxData?.coins) || 0;
-    if (user && coins > 0) broadcast({ type: "envelope", user, coins });
-  });
-  c.on(WebcastEvent.FOLLOW, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "follow", user });
-  });
-  c.on(WebcastEvent.SHARE, (d: Loose) => {
-    const user = toUser(d.user);
-    if (user) broadcast({ type: "share", user });
-  });
+  bindLiveEvents(c, broadcast, (count) => { viewerCount = count; simulation.observeViewers(count); });
   c.on(WebcastEvent.STREAM_END, () => {
     broadcast({ type: "status", state: "offline", detail: "live đã kết thúc" });
     schedule();
@@ -310,6 +265,7 @@ async function connectTikTok() {
   broadcast({ type: "status", state: "connecting", detail: `@${USERNAME}` });
   try {
     const state: Loose = await c.connect();
+    if (conn !== c || attempt !== generation) return;
     retry = 5000;
     roomIdNow = String(state?.roomId ?? "") || null;
     roomStatus = Number(state?.roomInfo?.status ?? state?.roomInfo?.data?.status) || null;
@@ -319,6 +275,7 @@ async function connectTikTok() {
     if (roomStatus === 4) console.log("[tiktok] ⚠ phòng này đã kết thúc — có thể đang nối vào phiên live cũ, sẽ thử lại");
     broadcast({ type: "status", state: "connected" });
   } catch (err: Loose) {
+    if (conn !== c || attempt !== generation) return;
     const msg = String(err?.message ?? err);
     console.error(`[tiktok] kết nối thất bại: ${msg}`);
     broadcast({ type: "status", state: /offline|not.*live/i.test(msg) ? "offline" : "error", detail: msg.slice(0, 80) });
@@ -342,7 +299,7 @@ setInterval(() => {
 
 let pending: NodeJS.Timeout | null = null;
 function schedule() {
-  if (pending) return;
+  if (pending || !USERNAME) return;
   console.log(`[tiktok] thử lại sau ${retry / 1000}s`);
   pending = setTimeout(() => {
     pending = null;
@@ -353,7 +310,69 @@ function schedule() {
 
 server.listen(PORT, HOST, () => {
   console.log(`UFO Live bridge: http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
+  console.log(`  Điều khiển: http://localhost:${PORT}/control`);
   console.log(`  Browser Source (1080×1920): http://localhost:${PORT}/`);
   if (USERNAME) void connectTikTok();
   else console.log("  Chưa đặt TIKTOK_USERNAME — chỉ phục vụ trang game và POST /emit.");
 });
+
+async function controlRoute(req: IncomingMessage, res: ServerResponse) {
+  const respond = (code: number, data: unknown) => res.writeHead(code, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(data));
+  const snapshot = () => ({ settings: control, username: USERNAME, status: lastStatus, viewers: viewerCount, clients: wss.clients.size, events: counts, lastEventAt, botAutoStopped, bosses: Object.entries(BOSS_NAMES).map(([id, name]) => ({ id, name })) });
+  if (req.method === "GET") return void respond(200, snapshot());
+  if (req.method !== "POST") return void respond(405, { error: "Method not allowed" });
+  if (!req.headers["content-type"]?.startsWith("application/json")) return void respond(415, { error: "JSON required" });
+  if (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return void respond(403, { error: "Origin not allowed" });
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 4096) return void respond(413, { error: "Request too large" });
+  }
+  try {
+    const data = JSON.parse(body);
+    if (data.action === "settings") {
+      const next = parseControl(data.settings, control);
+      simulation.configure(next.simulatedPlayers, next.intensity);
+      control = next;
+      if (control.simulatedPlayers > 0) botAutoStopped = false;
+      broadcast({ type: "control", settings: control });
+    } else if (data.action === "summonBoss") {
+      if (!isBossId(data.bossId)) throw new Error("Boss không hợp lệ");
+      if (![...wss.clients].some(client => client.readyState === WebSocket.OPEN)) {
+        return void respond(409, { error: "Chưa có màn hình game kết nối. Hãy mở màn hình game trước." });
+      }
+      try {
+        const bossResult = await sendBossCommand(wss.clients, data.bossId);
+        return void respond(200, { ...snapshot(), bossResult });
+      } catch (error) {
+        return void respond(504, { error: error instanceof Error ? error.message : "Game không phản hồi" });
+      }
+    } else if (data.action === "connect") {
+      if (typeof data.username !== "string" || !/^@?[a-zA-Z0-9_.]{1,64}$/.test(data.username.trim())) throw new Error("Nhập username TikTok, không nhập đường dẫn");
+      USERNAME = data.username.trim().replace(/^@/, "");
+      if (pending) clearTimeout(pending);
+      pending = null;
+      retry = 5000;
+      broadcast({ type: "remove", ids: [...recent.keys()].filter(id => !id.startsWith("sim:")) });
+      viewerCount = 0;
+      simulation.observeViewers(0);
+      void connectTikTok();
+    } else if (data.action === "disconnect") {
+      USERNAME = "";
+      generation++;
+      if (pending) clearTimeout(pending);
+      pending = null;
+      const old = conn;
+      conn = null;
+      old?.removeAllListeners();
+      await old?.disconnect();
+      viewerCount = 0;
+      simulation.observeViewers(0);
+      broadcast({ type: "remove", ids: [...recent.keys()].filter(id => !id.startsWith("sim:")) });
+      broadcast({ type: "status", state: "idle", detail: "đã ngắt kết nối" });
+    } else throw new Error("Lệnh không hợp lệ");
+    respond(200, snapshot());
+  } catch (err) {
+    respond(400, { error: err instanceof Error ? err.message : "Lệnh không hợp lệ" });
+  }
+}

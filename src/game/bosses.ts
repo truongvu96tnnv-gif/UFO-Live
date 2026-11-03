@@ -1,3 +1,4 @@
+import { BOSS_NAMES, type BossId } from "../live/boss-catalog";
 import { mulberry32 } from "./math";
 import { canvas, makeSaucer, SCX, SCY, SH, SW, type Img } from "./sprites";
 
@@ -13,7 +14,7 @@ import { canvas, makeSaucer, SCX, SCY, SH, SW, type Img } from "./sprites";
  *    Đĩa Vàng Hoàng Gia (giáp dày) · Bạch Tuộc Vũ Trụ (xúc tu bắt người) · Tàu Tàng Hình (đạn bắn trượt khi tàng hình)
  */
 
-export type BossId = "ufo" | "ufo2" | "ufo3" | "gold" | "octopus" | "stealth" | "spider" | "devourer" | "crystal" | "mother" | "planet" | "dragon";
+export type { BossId } from "../live/boss-catalog";
 export type Ability = "none" | "armor" | "grab" | "cloak" | "web" | "counter" | "shield" | "drones" | "charge" | "breath" | "devour";
 
 export interface BossDef {
@@ -49,51 +50,51 @@ export interface BossDef {
 
 export const BOSSES: Record<BossId, BossDef> = {
   ufo: {
-    id: "ufo", name: "UFO Xâm Lược", kind: "normal", hpMul: 1, timeMul: 1, stars: 1, color: "#9dff7a", ability: "none",
+    id: "ufo", name: BOSS_NAMES.ufo, kind: "normal", hpMul: 1, timeMul: 1, stars: 1, color: "#9dff7a", ability: "none",
     power: "", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.74, hitRx: 300, hitRy: 50, hitCy: 0, bellyY: 58,
   },
   ufo2: {
-    id: "ufo2", name: "UFO Tuần Tra", kind: "normal", hpMul: 1, timeMul: 1, stars: 1, color: "#5ad1ff", ability: "none",
+    id: "ufo2", name: BOSS_NAMES.ufo2, kind: "normal", hpMul: 1, timeMul: 1, stars: 1, color: "#5ad1ff", ability: "none",
     power: "", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.74, hitRx: 300, hitRy: 50, hitCy: 0, bellyY: 58,
   },
   ufo3: {
-    id: "ufo3", name: "UFO Lõi Plasma", kind: "normal", hpMul: 1, timeMul: 1, stars: 1, color: "#7ff0ff", ability: "none",
+    id: "ufo3", name: BOSS_NAMES.ufo3, kind: "normal", hpMul: 1, timeMul: 1, stars: 1, color: "#7ff0ff", ability: "none",
     power: "", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.74, hitRx: 300, hitRy: 50, hitCy: 0, bellyY: 58,
   },
   gold: {
-    id: "gold", name: "Đĩa Vàng Hoàng Gia", kind: "random", hpMul: 2.2, timeMul: 1.15, stars: 2, color: "#ffd55a", ability: "armor",
+    id: "gold", name: BOSS_NAMES.gold, kind: "random", hpMul: 2.2, timeMul: 1.15, stars: 2, color: "#ffd55a", ability: "armor",
     power: "Giáp vàng dày gấp đôi — cả phòng phải dồn hỏa lực!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.82, hitRx: 300, hitRy: 55, hitCy: -10, bellyY: 58,
   },
   octopus: {
-    id: "octopus", name: "Bạch Tuộc Vũ Trụ", kind: "random", hpMul: 1.8, timeMul: 1.1, stars: 3, color: "#d58bff", ability: "grab",
+    id: "octopus", name: BOSS_NAMES.octopus, kind: "random", hpMul: 1.8, timeMul: 1.1, stars: 3, color: "#d58bff", ability: "grab",
     power: "Xúc tu tóm người xem — dồn sát thương để giải cứu!", w: 700, h: 380, cx: 350, cy: 210, scale: 0.8, hitRx: 280, hitRy: 110, hitCy: -50, bellyY: 70,
   },
   stealth: {
-    id: "stealth", name: "Tàu Tàng Hình Bóng Đêm", kind: "random", hpMul: 1.6, timeMul: 0.9, stars: 3, color: "#5ad1ff", ability: "cloak",
+    id: "stealth", name: BOSS_NAMES.stealth, kind: "random", hpMul: 1.6, timeMul: 0.9, stars: 3, color: "#5ad1ff", ability: "cloak",
     power: "Tàng hình từng đợt — đạn bắn trượt khi tàu biến mất!", w: 780, h: 260, cx: 390, cy: 120, scale: 0.78, hitRx: 330, hitRy: 50, hitCy: 10, bellyY: 70,
   },
   spider: {
-    id: "spider", name: "Nhện Vũ Trụ", kind: "random", hpMul: 2, timeMul: 1.1, stars: 3, color: "#7dff4a", ability: "web",
+    id: "spider", name: BOSS_NAMES.spider, kind: "random", hpMul: 2, timeMul: 1.1, stars: 3, color: "#7dff4a", ability: "web",
     power: "Giăng lưới tơ: tim (laser) dính lưới chỉ gây 30% — cả phòng bình luận để xé lưới!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.8, hitRx: 280, hitRy: 70, hitCy: 0, bellyY: 70,
   },
   devourer: {
-    id: "devourer", name: "Kẻ Nuốt Hành Tinh", kind: "random", hpMul: 2.4, timeMul: 1.2, stars: 4, color: "#ff9a3d", ability: "devour",
+    id: "devourer", name: BOSS_NAMES.devourer, kind: "random", hpMul: 2.4, timeMul: 1.2, stars: 4, color: "#ff9a3d", ability: "devour",
     power: "Miệng hố đen hút 3 người xem — dồn sát thương trong 5s để nó nghẹn nhả ra, không thì bị nuốt & quái hồi máu!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.8, hitRx: 280, hitRy: 80, hitCy: 0, bellyY: 40,
   },
   crystal: {
-    id: "crystal", name: "Pháo Đài Tinh Thể", kind: "milestone", milestone: 10, hpMul: 2.4, timeMul: 1.4, stars: 4, color: "#7ff0ff", ability: "shield",
+    id: "crystal", name: BOSS_NAMES.crystal, kind: "milestone", milestone: 10, hpMul: 2.4, timeMul: 1.4, stars: 4, color: "#7ff0ff", ability: "shield",
     power: "Khiên tinh thể tự hồi — phá khiên rồi mới đánh được thân!", w: 620, h: 560, cx: 310, cy: 280, scale: 0.72, hitRx: 170, hitRy: 210, hitCy: 0, bellyY: 250,
   },
   mother: {
-    id: "mother", name: "Phi Thuyền Mẹ", kind: "milestone", milestone: 20, hpMul: 2.8, timeMul: 1.5, stars: 5, color: "#ffb15a", ability: "drones",
+    id: "mother", name: BOSS_NAMES.mother, kind: "milestone", milestone: 20, hpMul: 2.8, timeMul: 1.5, stars: 5, color: "#ffb15a", ability: "drones",
     power: "Thả UFO con xuống bắt người — bắn rơi chúng trước khi chạm phố!", w: 1100, h: 440, cx: 550, cy: 250, scale: 0.86, hitRx: 500, hitRy: 90, hitCy: -10, bellyY: 100,
   },
   planet: {
-    id: "planet", name: "Hành Tinh Hủy Diệt", kind: "milestone", milestone: 30, hpMul: 3.2, timeMul: 1.6, stars: 5, color: "#ff3b3b", ability: "charge",
+    id: "planet", name: BOSS_NAMES.planet, kind: "milestone", milestone: 30, hpMul: 3.2, timeMul: 1.6, stars: 5, color: "#ff3b3b", ability: "charge",
     power: "Mắt hủy diệt sạc năng lượng — dồn sát thương để ngắt sạc, không thì bị đẩy sát mặt đất!", w: 720, h: 560, cx: 360, cy: 280, scale: 0.8, hitRx: 210, hitRy: 210, hitCy: 0, bellyY: 225,
   },
   dragon: {
-    id: "dragon", name: "Rồng Không Gian", kind: "milestone", milestone: 50, super: true, hpMul: 4, timeMul: 1.8, stars: 5, color: "#b98cff", ability: "breath",
+    id: "dragon", name: BOSS_NAMES.dragon, kind: "milestone", milestone: 50, super: true, hpMul: 4, timeMul: 1.8, stars: 5, color: "#b98cff", ability: "breath",
     power: "Hơi thở hư không: rồng hít sâu 4 giây — dồn sát thương để ngắt, không thì cả phòng bị choáng & UFO tụt 6 km!", w: SW, h: SH, cx: SCX, cy: SCY, scale: 0.9, hitRx: 300, hitRy: 120, hitCy: 0, bellyY: 90,
   },
 };
