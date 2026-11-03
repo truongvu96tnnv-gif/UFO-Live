@@ -22,6 +22,21 @@ function toUser(u: Loose): LiveUser | null {
  * và bỏ tin nhắn tạo trước lúc kết nối hơn 20 giây.
  */
 const seenMsg = new Set<string>();
+
+/** Độ trễ TikTok: từ lúc tin nhắn được tạo trên máy chủ TikTok tới lúc bridge nhận (đo bằng common.createTime) */
+const lags: number[] = [];
+let lastLagMs: number | null = null;
+/** độ trễ của tin nhắn vừa nhận (đọc 1 lần rồi xoá, để không gắn nhầm sang sự kiện sau) */
+export function takeLag() {
+  const v = lastLagMs;
+  lastLagMs = null;
+  return v;
+}
+export function lagStats() {
+  if (!lags.length) return null;
+  const s = [...lags].sort((a, b) => a - b);
+  return { samples: s.length, avgMs: Math.round(s.reduce((n, x) => n + x, 0) / s.length), p90Ms: s[Math.floor(s.length * 0.9)], maxMs: s[s.length - 1] };
+}
 export function freshMessage(d: Loose, since: number, extra = ""): boolean {
   const id = d?.common?.msgId ?? d?.event?.msgId;
   if (id && id !== "0") {
@@ -33,7 +48,18 @@ export function freshMessage(d: Loose, since: number, extra = ""): boolean {
   }
   let t = Number(d?.common?.createTime ?? d?.event?.createTime ?? 0);
   if (t > 0 && t < 1e12) t *= 1000; // có gói ghi giây, có gói ghi mili-giây
-  return !(t > 0 && t < since);
+  if (t > 0 && t < since) return false;
+  // đồng hồ máy tính lệch nhiều so với TikTok thì bỏ mẫu đo (âm hoặc > 2 phút)
+  lastLagMs = null;
+  if (t > 0) {
+    const lag = Date.now() - t;
+    if (lag >= -2000 && lag < 120_000) {
+      lastLagMs = Math.max(0, lag);
+      lags.push(lastLagMs);
+      if (lags.length > 200) lags.shift();
+    }
+  }
+  return true;
 }
 
 export function bindLiveEvents(c: TikTokLiveConnection, broadcast: (event: LiveEvent) => void, setViewerCount: (count: number) => void) {

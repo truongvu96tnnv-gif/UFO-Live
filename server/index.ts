@@ -21,7 +21,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { sendBossCommand } from "./boss-command";
 import { BOSS_NAMES, isBossId } from "../src/live/boss-catalog";
 import { DEFAULT_CONTROL, parseControl, SimulatedPlayers } from "./control";
-import { bindLiveEvents } from "./live";
+import { bindLiveEvents, lagStats, takeLag } from "./live";
 import type { LiveEvent, LiveUser } from "../src/live/events";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -81,7 +81,9 @@ function broadcast(e: LiveEvent) {
     if (recent.size > 30) recent.delete(recent.keys().next().value!);
     if (VERBOSE && e.type !== "presence" && !e.user.id.startsWith("sim:")) {
       const extra = e.type === "chat" ? `: ${e.text}` : e.type === "like" ? ` ×${e.count}` : e.type === "gift" ? `: ${e.gift} ×${e.count} (${e.coins} xu)` : e.type === "envelope" ? `: rương ${e.coins} xu` : "";
-      console.log(`  ${ICON[e.type] ?? "•"} ${e.user.name}${extra}`);
+      const ms = takeLag();
+      const lag = ms !== null ? ` (TikTok trễ ${(ms / 1000).toFixed(1)}s)` : "";
+      console.log(`  ${ICON[e.type] ?? "•"} ${e.user.name}${extra}${lag}`);
     }
   }
   const msg = JSON.stringify(e);
@@ -121,7 +123,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   }
   if (url.pathname === "/avatar") return avatar(url.searchParams.get("u") ?? "", res);
   if (url.pathname === "/emit" && req.method === "POST") return emit(req, res);
-  if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, roomId: roomIdNow, roomStatus, clients: wss.clients.size, viewers: viewerCount, events: counts, lastEventAt, tiktokPackets: raw, lastPacketAt }));
+  if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, roomId: roomIdNow, roomStatus, clients: wss.clients.size, viewers: viewerCount, events: counts, lastEventAt, tiktokLag: lagStats(), tiktokPackets: raw, lastPacketAt }));
   if (req.method !== "GET" && req.method !== "HEAD") return void res.writeHead(405).end();
   if (url.pathname.startsWith("/voice/")) return voiceRoute(decodeURIComponent(url.pathname.slice(7)), res);
 

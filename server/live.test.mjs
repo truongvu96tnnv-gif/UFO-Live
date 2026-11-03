@@ -102,3 +102,11 @@ test('gift combo steps sharing one msgId are all counted; exact replay is not', 
   }
   assert.deepEqual(h.events.map((e) => e.count), [1, 3]);
 });
+
+test('measures TikTok delivery lag from message createTime', async () => {
+  const { lagStats } = await import('./live.ts');
+  const h = harness();
+  await h.emit('WebcastChatMessage', { user, content: 'trễ 3 giây', common: message('CommonMessageData', { msgId: '8801', createTime: String(Date.now() - 3000) }) });
+  const s = lagStats();
+  assert.ok(s && s.maxMs >= 2900 && s.maxMs < 4000, JSON.stringify(s));
+});
