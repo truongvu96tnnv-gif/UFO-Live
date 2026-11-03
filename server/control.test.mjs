@@ -34,6 +34,7 @@ test('21 real viewers remove every bot, block re-enabling, and do not auto-resum
   const events = [];
   let stopped = 0;
   const sim = new SimulatedPlayers(e => events.push(e), () => stopped++, () => 0.5);
+  sim.autoStop = true;
   sim.configure(4, 2);
   sim.observeViewers(20);
   assert.equal(stopped, 0);
@@ -67,4 +68,18 @@ test('independent bot rhythms produce varied likes and chats without paid gifts'
   const before = events.length;
   sim.tick(3600);
   assert.ok(events.length - before <= 6, 'no backlog flood after a stalled tick');
+});
+
+test('auto-stop off by default: bots keep running above 20 viewers and can be enabled manually', () => {
+  const events = [];
+  let stopped = 0;
+  const sim = new SimulatedPlayers(e => events.push(e), () => stopped++, () => 0.5);
+  sim.configure(3, 1);
+  sim.observeViewers(500);
+  assert.equal(stopped, 0);
+  assert.ok(!events.some(e => e.type === 'remove'));
+  sim.configure(5, 2);
+  assert.equal(events.filter(e => e.type === 'join').length, 5);
+  sim.configure(0, 2);
+  assert.deepEqual(events.at(-1), { type: 'remove', ids: ['sim:1', 'sim:2', 'sim:3', 'sim:4', 'sim:5'] });
 });

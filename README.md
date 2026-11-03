@@ -260,7 +260,7 @@ Có thể thêm 0–20 **BOT mô phỏng**, chọn 3 nhịp tương tác và t�
 
 Mỗi gói tim tạo tối đa 12 tia laser, phát đầu ngay và cách nhau 45 ms, tổng sát thương bằng số tim × sát thương mỗi tim. App không thể loại bỏ độ trễ trước khi TikTok gửi gói sự kiện.
 
-BOT tự tắt khi số người xem thật TikTok báo về **vượt 20** (20 vẫn được bật, 21 trở lên sẽ tắt). Khi người xem giảm, BOT không tự bật lại; có thể bật thủ công khi còn tối đa 20 người xem. Thời điểm tắt phụ thuộc lúc TikTok gửi cập nhật số người xem.
+Mặc định BOT **chỉ bật/tắt bằng tay** trong `/control` (nút *Áp dụng* / *Tắt tất cả BOT*), không tự tắt theo số người xem. Nếu muốn, tích *Tự tắt BOT khi người xem thật vượt 20*: khi TikTok báo **vượt 20** người xem (21 trở lên) thì BOT tự tắt và không tự bật lại; bật lại bằng tay khi còn tối đa 20 người xem.
 
 ### Gọi boss từ trang điều khiển
 

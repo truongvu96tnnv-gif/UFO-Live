@@ -350,8 +350,11 @@ async function controlRoute(req: IncomingMessage, res: ServerResponse) {
     const data = JSON.parse(body);
     if (data.action === "settings") {
       const next = parseControl(data.settings, control);
+      simulation.autoStop = next.autoStop;
       simulation.configure(next.simulatedPlayers, next.intensity);
       control = next;
+      // vừa bật "tự tắt" mà đang vượt ngưỡng → áp dụng ngay
+      if (control.autoStop) simulation.observeViewers(viewerCount);
       if (control.simulatedPlayers > 0) botAutoStopped = false;
       broadcast({ type: "control", settings: control });
     } else if (data.action === "summonBoss") {

@@ -13,14 +13,17 @@ function syncForm(data) {
   $('intensity').value = data.settings.intensity;
   $('muted').checked = data.settings.muted;
   $('music').checked = data.settings.music;
+  $('autoStop').checked = !!data.settings.autoStop;
 }
 function render(data) {
   const autoStopped = data.botAutoStopped && (!lastSnapshot?.botAutoStopped || lastSnapshot.settings.simulatedPlayers > 0);
   lastSnapshot = data;
-  $('botRule').textContent = data.botAutoStopped
-    ? 'BOT đã tự tắt vì vượt 20 người xem thật. Khi còn tối đa 20 người xem, bạn có thể bật lại bằng tay.'
-    : 'BOT tự tắt khi số người xem TikTok vượt 20; không tự bật lại.';
-  if (autoStopped || data.viewers > 20) {
+  $('botRule').textContent = !data.settings.autoStop
+    ? 'BOT chỉ bật/tắt khi bạn bấm — không tự tắt theo số người xem.'
+    : data.botAutoStopped
+      ? 'BOT đã tự tắt vì vượt 20 người xem thật. Khi còn tối đa 20 người xem, bạn có thể bật lại bằng tay.'
+      : 'BOT tự tắt khi số người xem TikTok vượt 20; không tự bật lại.';
+  if (autoStopped || (data.settings.autoStop && data.viewers > 20)) {
     $('playerCount').value = 0;
     $('countLabel').value = 0;
   }
@@ -65,7 +68,7 @@ $('disconnect').onclick = () => command({ action: 'disconnect' });
 $('playerCount').oninput = () => $('countLabel').value = $('playerCount').value;
 $('simulationForm').onsubmit = e => { e.preventDefault(); command({ action: 'settings', settings: { simulatedPlayers: +$('playerCount').value, intensity: +$('intensity').value } }); };
 $('stopBots').onclick = () => command({ action: 'settings', settings: { simulatedPlayers: 0 } });
-for (const id of ['muted', 'music']) $(id).onchange = () => command({ action: 'settings', settings: { [id]: $(id).checked } });
+for (const id of ['muted', 'music', 'autoStop']) $(id).onchange = () => command({ action: 'settings', settings: { [id]: $(id).checked } });
 async function poll() {
   try {
     if (!busy) {

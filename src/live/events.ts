@@ -16,6 +16,8 @@ export interface ControlSettings {
   intensity: number;
   muted: boolean;
   music: boolean;
+  /** tự tắt BOT khi người xem thật vượt 20 (mặc định tắt: BOT chỉ bật/tắt bằng tay) */
+  autoStop: boolean;
 }
 
 export type LiveEvent =

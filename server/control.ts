@@ -1,6 +1,6 @@
 import type { ControlSettings, LiveEvent, LiveUser } from "../src/live/events";
 
-export const DEFAULT_CONTROL: ControlSettings = { simulatedPlayers: 0, intensity: 1, muted: false, music: true };
+export const DEFAULT_CONTROL: ControlSettings = { simulatedPlayers: 0, intensity: 1, muted: false, music: true, autoStop: false };
 
 export function parseControl(raw: unknown, current: ControlSettings): ControlSettings {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Cấu hình không hợp lệ");
@@ -13,8 +13,8 @@ export function parseControl(raw: unknown, current: ControlSettings): ControlSet
       if (typeof value !== "number" || !Number.isInteger(value) || value < (key === "intensity" ? 1 : 0) || value > (key === "intensity" ? 3 : 20)) throw new Error("Số người: 0–20, nhịp tương tác: 1–3");
       next[key] = value;
     } else {
-      if (typeof r[key] !== "boolean") throw new Error("Âm thanh phải là bật/tắt");
-      next[key as "muted" | "music"] = r[key] as boolean;
+      if (typeof r[key] !== "boolean") throw new Error("Giá trị phải là bật/tắt");
+      next[key as "muted" | "music" | "autoStop"] = r[key] as boolean;
     }
   }
   return next;
@@ -30,6 +30,8 @@ export class SimulatedPlayers {
   private time = 0;
   private intensity = 1;
   private viewers = 0;
+  /** tự tắt khi vượt BOT_VIEWER_LIMIT người xem thật; tắt thì BOT chỉ đổi khi người vận hành bấm */
+  autoStop = false;
   constructor(
     private emit: (event: LiveEvent) => void,
     private onAutoStop: () => void = () => {},
@@ -39,14 +41,14 @@ export class SimulatedPlayers {
   observeViewers(count: number) {
     if (!Number.isFinite(count) || count < 0) return;
     this.viewers = count;
-    if (count > BOT_VIEWER_LIMIT && this.users.length) {
+    if (this.autoStop && count > BOT_VIEWER_LIMIT && this.users.length) {
       this.configure(0, this.intensity);
       this.onAutoStop();
     }
   }
 
   configure(count: number, intensity: number) {
-    if (count > 0 && this.viewers > BOT_VIEWER_LIMIT) throw new Error("Đang có hơn 20 người xem thật: BOT đã bị tắt");
+    if (this.autoStop && count > 0 && this.viewers > BOT_VIEWER_LIMIT) throw new Error("Đang có hơn 20 người xem thật: BOT đã bị tắt");
     this.intensity = intensity;
     if (count < this.users.length) this.emit({ type: "remove", ids: this.users.slice(count).map(p => p.user.id) });
     this.users.length = Math.min(count, this.users.length);
