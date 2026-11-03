@@ -191,7 +191,7 @@ Mở `http://localhost:5173/?demo=1` — người xem giả lập tự vào phò
 | `SIGN_API_KEY` | — | khoá Euler Stream, nếu connector yêu cầu ký |
 | `LOG` | `1` | in từng sự kiện ra cửa sổ bridge (`👋 An`, `💬 An: bắn`…); `LOG=0` để tắt |
 
-Kiểm tra nhanh: mở `http://localhost:8787/health` — `status` (đã kết nối live chưa), `clients` (số màn hình game đang mở), `viewers` (số người xem), `events` (đếm sự kiện đã nhận theo loại), `lastEventAt`. Chẩn đoán sâu hơn: `roomId` / `roomStatus` (2 = đang live, 4 = đã kết thúc), `tiktokPackets` (mọi gói TikTok gửi về theo loại). Đã `connected` mà 45 giây không có gói nào → bridge tự nối lại (thường do đang bám phiên live cũ).
+Kiểm tra nhanh: mở `http://localhost:8787/health` — `status` (đã kết nối live chưa), `clients` (số màn hình game đang mở), `viewers` (số người xem), `events` (đếm sự kiện đã nhận theo loại), `lastEventAt`. Chẩn đoán sâu hơn: `roomId` / `roomStatus` (2 = đang live, 4 = đã kết thúc), `tiktokPackets` (mọi gói TikTok gửi về theo loại). Phòng im lặng không bị coi là mất kết nối: chỉ khi im ≥ 60 giây bridge mới hỏi TikTok (tối đa 1 lần/phút) xem kết nối còn sống, kênh còn live và mã phòng có đổi không (tắt live rồi phát lại) — có vấn đề mới nối lại. Tin nhắn TikTok phát lại khi kết nối (bình luận cũ) được lọc theo msgId và thời điểm tạo, nên không bị xử lý lặp.
 
 Người xem hiện trong thành phố khi: vào phòng, tương tác, hoặc nằm trong danh sách người xem hàng đầu TikTok gửi định kỳ (nên người đã ở trong phòng từ trước cũng hiện). Trang game tải lại thì bridge gửi lại 30 người xem gần nhất.
 

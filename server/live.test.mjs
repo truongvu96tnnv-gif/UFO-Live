@@ -80,3 +80,25 @@ test('envelopes use sender and coins from envelopeInfo', async () => {
   assert.equal(h.events[0].user.id, '54321');
   assert.equal(h.events[0].coins, 199);
 });
+
+test('reconnect replay: same chat msgId is ingested once across connections; stale messages dropped', async () => {
+  const common = (msgId, createTime) => message('CommonMessageData', { msgId, createTime: String(createTime) });
+  const a = harness();
+  await a.emit('WebcastChatMessage', { user, content: 'doi phe', common: common('7001', Date.now()) });
+  const b = harness(); // kết nối lại: connector phát lại loạt bình luận gần nhất
+  await b.emit('WebcastChatMessage', { user, content: 'doi phe', common: common('7001', Date.now()) });
+  await b.emit('WebcastChatMessage', { user, content: 'cũ từ 5 phút trước', common: common('7002', Date.now() - 300_000) });
+  await b.emit('WebcastChatMessage', { user, content: 'mới', common: common('7003', Date.now()) });
+  assert.deepEqual(a.events.filter(e => e.type === 'chat').map(e => e.text), ['doi phe']);
+  assert.deepEqual(b.events.filter(e => e.type === 'chat').map(e => e.text), ['mới']);
+});
+
+test('gift combo steps sharing one msgId are all counted; exact replay is not', async () => {
+  const h = harness();
+  const gift = message('Gift', { type: 1, name: 'Rose', diamondCount: 1 });
+  const common = message('CommonMessageData', { msgId: '9100', createTime: String(Date.now()) });
+  for (const [repeatCount, repeatEnd] of [[1, 0], [4, 0], [4, 0], [4, 1]]) {
+    await h.emit('WebcastGiftMessage', { user, gift, giftId: '2', groupId: '20', repeatCount, repeatEnd, common });
+  }
+  assert.deepEqual(h.events.map((e) => e.count), [1, 3]);
+});

@@ -16,11 +16,33 @@ function toUser(u: Loose): LiveUser | null {
   };
 }
 
+/**
+ * Chống lặp sự kiện: mỗi lần kết nối, connector phát lại loạt tin nhắn gần nhất của phòng (bình luận cũ…).
+ * Nối lại nhiều lần → cùng 1 bình luận "đổi phe" bị xử lý lặp lại. Nhớ msgId đã xử lý (dùng chung mọi lần kết nối)
+ * và bỏ tin nhắn tạo trước lúc kết nối hơn 20 giây.
+ */
+const seenMsg = new Set<string>();
+export function freshMessage(d: Loose, since: number, extra = ""): boolean {
+  const id = d?.common?.msgId ?? d?.event?.msgId;
+  if (id && id !== "0") {
+    // quà combo: mỗi nấc repeatCount là 1 sự kiện riêng → khoá theo cả nấc để không nuốt mất
+    const key = `${id}:${extra}`;
+    if (seenMsg.has(key)) return false;
+    seenMsg.add(key);
+    if (seenMsg.size > 5000) seenMsg.delete(seenMsg.values().next().value!);
+  }
+  let t = Number(d?.common?.createTime ?? d?.event?.createTime ?? 0);
+  if (t > 0 && t < 1e12) t *= 1000; // có gói ghi giây, có gói ghi mili-giây
+  return !(t > 0 && t < since);
+}
+
 export function bindLiveEvents(c: TikTokLiveConnection, broadcast: (event: LiveEvent) => void, setViewerCount: (count: number) => void) {
+  const since = Date.now() - 20_000;
   /** combo đang chạy: khoá người+quà+nhóm → repeatCount đã phát */
   const streaks = new Map<string, { n: number; at: number }>();
 
   function onGift(d: Loose) {
+    if (!freshMessage(d, since, `${d.repeatCount ?? ""}:${d.repeatEnd ?? ""}`)) return;
     const old = Date.now() - 120_000;
     for (const [key, value] of streaks) if (value.at < old) streaks.delete(key);
     const user = toUser(d.user);
@@ -57,19 +79,23 @@ export function bindLiveEvents(c: TikTokLiveConnection, broadcast: (event: LiveE
     }
   });
   c.on(WebcastEvent.MEMBER, (d: Loose) => {
+    if (!freshMessage(d, since)) return;
     const user = toUser(d.user);
     if (user) broadcast({ type: "join", user });
   });
   c.on(WebcastEvent.LIKE, (d: Loose) => {
+    if (!freshMessage(d, since)) return;
     const user = toUser(d.user);
     if (user) broadcast({ type: "like", user, count: Math.max(1, Number(d.count ?? d.likeCount) || 1) });
   });
   c.on(WebcastEvent.CHAT, (d: Loose) => {
+    if (!freshMessage(d, since)) return;
     const user = toUser(d.user);
     if (user) broadcast({ type: "chat", user, text: String(d.content ?? d.comment ?? "").slice(0, 200) });
   });
   c.on(WebcastEvent.GIFT, onGift);
   c.on(WebcastEvent.ENVELOPE, (d: Loose) => {
+    if (!freshMessage(d, since)) return;
     const info = d.envelopeInfo;
     const user = info ? toUser({ id: info.sendUserId, nickname: info.sendUserName, avatarThumb: info.sendUserAvatar })
       : toUser(d.treasureBoxUser?.user2?.user3?.[0]?.user4?.user ?? d.user);
@@ -77,10 +103,12 @@ export function bindLiveEvents(c: TikTokLiveConnection, broadcast: (event: LiveE
     if (user && coins > 0) broadcast({ type: "envelope", user, coins });
   });
   c.on(WebcastEvent.FOLLOW, (d: Loose) => {
+    if (!freshMessage(d, since)) return;
     const user = toUser(d.user);
     if (user) broadcast({ type: "follow", user });
   });
   c.on(WebcastEvent.SHARE, (d: Loose) => {
+    if (!freshMessage(d, since)) return;
     const user = toUser(d.user);
     if (user) broadcast({ type: "share", user });
   });

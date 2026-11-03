@@ -228,8 +228,6 @@ let roomStatus: number | null = null;
 const raw: Record<string, number> = {};
 let lastPacketAt: string | null = null;
 let lastPacketMs = 0;
-let connectedMs = 0;
-let watchdogHits = 0;
 let retry = 5000;
 let generation = 0;
 
@@ -250,7 +248,6 @@ async function connectTikTok() {
     if (conn !== c) return;
     if (!raw[type]) console.log(`[tiktok] gói đầu tiên loại ${type}`);
     raw[type] = (raw[type] ?? 0) + 1;
-    watchdogHits = 0;
     lastPacketMs = Date.now();
     lastPacketAt = new Date().toISOString();
   });
@@ -273,7 +270,8 @@ async function connectTikTok() {
     retry = 5000;
     roomIdNow = String(state?.roomId ?? "") || null;
     roomStatus = Number(state?.roomInfo?.status ?? state?.roomInfo?.data?.status) || null;
-    connectedMs = lastPacketMs = Date.now();
+    lastPacketMs = Date.now();
+    lastCheckMs = Date.now();
     const title = state?.roomInfo?.title ?? state?.roomInfo?.data?.title;
     console.log(`[tiktok] đã kết nối @${USERNAME} (room ${roomIdNow ?? "?"}${roomStatus ? `, trạng thái ${roomStatus === 2 ? "ĐANG LIVE" : roomStatus === 4 ? "ĐÃ KẾT THÚC" : roomStatus}` : ""}${title ? `, "${title}"` : ""})`);
     if (roomStatus === 4) console.log("[tiktok] ⚠ phòng này đã kết thúc — có thể đang nối vào phiên live cũ, sẽ thử lại");
@@ -287,17 +285,37 @@ async function connectTikTok() {
   }
 }
 
-// Canh chừng: đã "connected" mà 45 giây không có gói nào từ TikTok (bình thường vài giây đã có gói) →
-// nhiều khả năng đang nối vào phiên live cũ / kết nối chết → tự nối lại để lấy phòng mới.
-setInterval(() => {
-  if (!conn || lastStatus.type !== "status" || lastStatus.state !== "connected") return;
-  // nối lại liên tục mà vẫn trống thì giãn dần (45s → 90s → … tối đa 3 phút) để khỏi bị TikTok / máy chủ ký chặn
-  if (Date.now() - lastPacketMs > 45_000 * Math.min(4, watchdogHits + 1)) {
-    watchdogHits++;
-    console.log(`[tiktok] ⚠ ${Math.round((Date.now() - connectedMs) / 1000)}s không nhận được gói nào từ TikTok — nối lại`);
-    broadcast({ type: "status", state: "connecting", detail: "không có dữ liệu, đang nối lại" });
-    retry = 5000;
-    void connectTikTok();
+// Canh chừng: phòng live ít người có thể im lặng vài phút — im lặng KHÔNG phải mất kết nối, nên không nối lại vì im.
+// Chỉ khi đã im ≥ 60 giây mới hỏi TikTok (tối đa 1 lần / phút): kết nối còn sống không, kênh còn live không,
+// và mã phòng hiện tại có đổi không (tắt live rồi phát lại → phòng mới). Đổi phòng / chết kết nối → nối lại.
+let checking = false;
+let lastCheckMs = 0;
+setInterval(async () => {
+  const c = conn;
+  if (!c || checking || lastStatus.type !== "status" || lastStatus.state !== "connected") return;
+  if (Date.now() - lastPacketMs < 60_000 || Date.now() - lastCheckMs < 60_000) return;
+  checking = true;
+  lastCheckMs = Date.now();
+  try {
+    let reason = "";
+    if (!c.isConnected) reason = "kết nối đã đóng";
+    else {
+      const live = await c.fetchIsLive().catch(() => null);
+      if (live === false) reason = "kênh không còn live";
+      else {
+        const room = await c.fetchRoomId().catch(() => "");
+        if (room && roomIdNow && room !== roomIdNow) reason = `phòng mới ${room}`;
+      }
+    }
+    if (conn !== c) return;
+    if (reason) {
+      console.log(`[tiktok] ⚠ ${reason} — nối lại`);
+      broadcast({ type: "status", state: "connecting", detail: reason });
+      retry = 5000;
+      void connectTikTok();
+    } else if (VERBOSE) console.log(`[tiktok] phòng đang yên lặng ${Math.round((Date.now() - lastPacketMs) / 1000)}s — kết nối vẫn ổn`);
+  } finally {
+    checking = false;
   }
 }, 15_000).unref();
 
