@@ -22,6 +22,8 @@ export interface Balance {
   sharePush: number;
   /** xác suất 1 vòng thường gặp trùm ngẫu nhiên (Đĩa Vàng / Bạch Tuộc / Tàu Tàng Hình) */
   bossChance: number;
+  /** 1 lượt quà từ bấy nhiêu xu → người tặng làm TRÙM ở vòng sau */
+  bossGift: number;
 }
 
 export const DEFAULT_BALANCE: Balance = {
@@ -37,6 +39,7 @@ export const DEFAULT_BALANCE: Balance = {
   followPush: 0.04,
   sharePush: 0.06,
   bossChance: 0.15,
+  bossGift: 100,
 };
 
 export function balanceFromQuery(q: URLSearchParams): Balance {
@@ -53,5 +56,6 @@ export function balanceFromQuery(q: URLSearchParams): Balance {
   b.giftDmg = num("gift") ?? b.giftDmg;
   b.bossChance = num("boss") ?? b.bossChance;
   b.fundGoal = num("fund") ?? b.fundGoal;
+  b.bossGift = num("bossgift") ?? b.bossGift;
   return b;
 }

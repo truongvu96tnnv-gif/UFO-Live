@@ -9,6 +9,7 @@ import { Scene } from "./scene";
 import { SpriteAnim } from "./anim";
 import { LASER_KINDS } from "./audio/voices";
 import { drawWarped } from "./warp";
+import { drawTraitor, guideRows, isDefect, isReturn, type Traitor } from "./roles";
 import { DEFEATS, FATE_DUR, FATE_STAYS, drawCity, drawScreen, type Fate } from "./defeat";
 import { bossOver, bossUnder, MOTION, type FxCtx } from "./bossfx";
 import { BOSS_ANIM, BOSS_ART, BOSSES, NORMAL_UFOS, isMilestone, milestoneBoss, nextMilestone, PLANET_EYE, RANDOM_BOSSES, makeBossSprite, type BossDef, type BossId } from "./bosses";
@@ -63,7 +64,7 @@ const TIPS = [
   "❤️ THẢ TIM = BẮN LASER",
   "💬 BÌNH LUẬN = PHÓNG TÊN LỬA",
   "🎁 MỖI MÓN QUÀ = 1 VŨ KHÍ RIÊNG",
-  "🪙 GÓP XU ĐẦY QUỸ = ĐẠN VÀNG ×2",
+  "⚡ TƯƠNG TÁC NẠP NĂNG LƯỢNG = ĐẠN VÀNG ×2",
   "➕ FOLLOW / CHIA SẺ = ĐẨY UFO LÙI",
 ];
 
@@ -110,6 +111,8 @@ interface Shot {
   label: boolean;
   /** nhắm vào UFO con thay vì thân trùm */
   drone: Drone | null;
+  /** nhắm vào UFO đỏ của kẻ phản bội */
+  traitor: Traitor | null;
 }
 
 /** Tia năng lượng gây sát thương liên tục: pháo mặt đất / laser đôi kính râm / tia từ quỹ đạo */
@@ -284,6 +287,18 @@ export class Game {
   /** vòng vừa rồi thua (màn nghỉ ghi câu "thả về" theo boss) */
   private lastLost = false;
   private drones: Drone[] = [];
+  /** UFO đỏ của người xem "đổi phe" */
+  private traitors: Traitor[] = [];
+  /** tia đỏ kẻ phản bội bắn xuống thành phố (chỉ hiệu ứng) */
+  private redBolts: { x0: number; y0: number; x1: number; y1: number; t0: number }[] = [];
+  /** không cho đổi phe lại ngay sau khi bị bắn hạ / quay về (giây) */
+  private defectCd = new Map<string, number>();
+  /** máu kẻ phản bội & trùm người xem đã hồi cho trùm trong vòng (có trần) */
+  private traitorHeal = 0;
+  private bossHeal = 0;
+  /** hàng chờ làm trùm (tặng quà lớn) và người đang điều khiển trùm vòng này */
+  private bossQueue: LiveUser[] = [];
+  playerBoss: LiveUser | null = null;
   private charge: { t0: number; need: number; dealt: number } | null = null;
   private cloak = 0;
   private eyeBlast = 0;
@@ -583,13 +598,20 @@ export class Game {
     if (this.forcedBoss) id = this.forcedBoss;
     else if (this.streak > 0 && isMilestone(this.streak)) id = milestoneBoss(this.streak);
     else if (this.round > 1 && Math.random() < this.bal.bossChance) id = pick(RANDOM_BOSSES);
+    // trùm người xem: người đầu hàng chờ điều khiển trùm vòng này (lệnh gọi boss của người vận hành thì không)
+    this.playerBoss = !this.forcedBoss && this.bossQueue.length ? this.bossQueue.shift()! : null;
     this.forcedBoss = null;
     const def = (this.bossDef = BOSSES[id]);
     this.bossMilestone = def.kind === "milestone" ? (isMilestone(this.streak) ? this.streak : def.milestone ?? 0) : 0;
     this.battleTime = this.bal.battleTime * def.timeMul;
     this.introDur = def.kind === "normal" ? INTRO_T : BOSS_INTRO_T;
     const viewers = this.activeCount();
-    this.hpMax = Math.max(50, Math.round((this.bal.hpBase + this.bal.hpPerViewer * viewers) * this.diffMul * def.hpMul));
+    this.hpMax = Math.max(50, Math.round((this.bal.hpBase + this.bal.hpPerViewer * viewers) * this.diffMul * def.hpMul * (this.playerBoss ? 1.25 : 1)));
+    // kẻ phản bội vòng trước được thả về phe Trái Đất
+    for (const tr of this.traitors) this.releaseTraitor(tr, false);
+    this.traitors = [];
+    this.traitorHeal = 0;
+    this.bossHeal = 0;
     this.grab = null;
     this.stun.clear();
     this.bolts = [];
@@ -649,6 +671,7 @@ export class Game {
       // mỗi boss một kiểu "hạ đất": lịch số phận từng người theo hiệu ứng (quét, lan, thổi…)
       const def = DEFEATS[this.bossDef.id];
       const order = this.people
+        .filter((p) => !this.isRoleUser(p.user.id))
         .map((p) => {
           const [x, y] = this.personPos(p);
           return [Math.hypot(x - CX, y - UFO_LAND_Y), p, x, y] as const;
@@ -714,6 +737,7 @@ export class Game {
     if (e.type === "presence") return;
     person.pulse = 1;
     const fighting = this.phase === "battle" && this.ufoAlive && this.hp > 0;
+    if (this.handleRoles(e, user, person, fighting)) return;
 
     switch (e.type) {
       case "join":
@@ -1008,7 +1032,17 @@ export class Game {
       label: !from,
       // Phi Thuyền Mẹ: gần nửa số đạn tự nhắm UFO con đang lao xuống
       drone: this.drones.length && kind !== "mega" && Math.random() < 0.45 ? pick(this.drones.filter((d) => !d.dead)) ?? null : null,
+      traitor: null,
     });
+    // cả phòng ưu tiên bắn kẻ phản bội: ~60% đạn (trừ siêu tên lửa) đổi hướng sang UFO đỏ
+    const shot = this.shots[this.shots.length - 1];
+    const alive = this.traitors.filter((t) => !t.dead && t.user.id !== user.id);
+    if (!shot.drone && alive.length && kind !== "mega" && Math.random() < 0.6) {
+      const [ox, oy] = [sx, sy];
+      shot.traitor = alive.reduce((a, b) => (Math.hypot(a.x - ox, a.y - oy) < Math.hypot(b.x - ox, b.y - oy) ? a : b));
+      shot.ox = rand(-30, 30);
+      shot.oy = rand(-10, 20);
+    }
     if (kind === "laser") this.sfx.laser(sx, this.gunOf(user), this.golden && !this.giftCtx);
     else if (fx === "rose" || (kind === "rocket" && !this.giftCtx)) this.sfx.whistle(sx, fx === "rose" ? 1 : 0.7);
     else if (fx === "confetti") {
@@ -1147,6 +1181,7 @@ export class Game {
     this.updateShots(dt);
     this.updateFx(dt);
     this.enemyShots = this.enemyShots.filter((e) => this.time - e.t0 < 0.5);
+    this.updateTraitors(dt);
     this.sfx.update({ phase: this.phase, progress: this.progress, boss: this.bossDef.id, bossKind: this.bossDef.kind, ufoAlive: this.ufoAlive, golden: this.golden });
     this.scene.update(dt);
     for (const p of this.people) p.pulse = Math.max(0, p.pulse - dt * 2.5);
@@ -1286,6 +1321,7 @@ export class Game {
 
   private shotTarget(s: Shot): [number, number] {
     if (s.drone) return [s.drone.x + s.ox * 0.1, s.drone.y + s.oy * 0.2];
+    if (s.traitor) return [s.traitor.x + s.ox, s.traitor.y + s.oy];
     return [this.ux + s.ox, this.uy + s.oy];
   }
 
@@ -1313,6 +1349,14 @@ export class Game {
           if (!s.drone.dead) this.hitDrone(s.drone, s.dmg, s.user, s.boost);
           this.sparks(x, y, 4, 300);
           continue;
+        }
+        if (s.traitor) {
+          // UFO đỏ đã nổ trước khi đạn tới → đạn bay tiếp vào trùm
+          if (!s.traitor.dead) {
+            this.hitTraitor(s.traitor, s.dmg, s.user, s.boost);
+            this.sparks(x, y, s.kind === "laser" ? 3 : 10, 360);
+            continue;
+          }
         }
         const big = s.kind === "heavy" || s.kind === "mega";
         this.sfx.impact(this.bossDef.id, s.kind === "laser" || s.kind === "heart" || s.kind === "bill" ? "laser" : big ? "heavy" : "rocket", x);
@@ -1470,6 +1514,8 @@ export class Game {
       ctx.fillRect(-40, -40, W + 80, H + 80);
     }
     if (this.ufoAlive) this.drawUfo(ctx);
+    if (this.ufoAlive && this.playerBoss) this.drawPlayerBoss(ctx);
+    this.drawTraitors(ctx);
     this.drawAbilities(ctx);
     this.drawEnemyShots(ctx);
     this.drawWeb(ctx);
@@ -1508,6 +1554,8 @@ export class Game {
   }
 
   private drawPerson(ctx: CanvasRenderingContext2D, p: Person) {
+    // người đang là UFO đỏ / đang điều khiển trùm không đứng dưới phố
+    if (p.suck < 0 && (this.playerBoss?.id === p.user.id || this.traitors.some((t) => !t.dead && t.user.id === p.user.id))) return;
     let [x, y] = this.personPos(p);
     let r = BUBBLE_R * p.z;
     let rot = 0;
@@ -2285,6 +2333,8 @@ export class Game {
     if (this.cloaked) return ["👻 TÀU ĐANG TÀNG HÌNH — 70% ĐẠN BẮN TRƯỢT!", "#7fd8ff"];
     if (this.webHp > 0) return [`🕸 LƯỚI TƠ ${fmt(this.webHp)} — BÌNH LUẬN & QUÀ ĐỂ XÉ!`, "#9dff7a"];
     if (this.shieldHp > 0) return [`🛡 KHIÊN TINH THỂ: ${fmt(this.shieldHp)} — PHÁ KHIÊN TRƯỚC!`, "#7ff0ff"];
+    const traitors = this.traitors.filter((t) => !t.dead).length;
+    if (traitors) return [`😈 ${traitors} KẺ PHẢN BỘI ĐANG HỒI MÁU CHO UFO — BẮN HẠ CHÚNG!`, "#ff5a6e"];
     const drones = this.drones.filter((d) => !d.dead).length;
     if (drones) return [`🛸 ${drones} UFO CON ĐANG LAO XUỐNG — BẮN RƠI NGAY!`, "#ffb15a"];
     for (const [, t] of this.stun) if (t > now) return this.bossDef.id === "dragon" ? ["🌌 HƠI THỞ HƯ KHÔNG — NGƯỜI BỊ CHOÁNG GIẢM 50% SÁT THƯƠNG", "#b98cff"] : ["⚡ NGƯỜI BỊ CHOÁNG GIẢM 50% SÁT THƯƠNG", "#ff7a8a"];
@@ -3446,7 +3496,8 @@ export class Game {
     // tiêu đề + tỉ số
     const d = this.bossDef;
     const bossOn = this.boss && this.phase !== "break";
-    fitText(ctx, bossOn ? `★ ${this.bossLabel()}: ${d.name.toUpperCase()} ★` : "BẢO VỆ TRÁI ĐẤT", CX, SAFE.top + 22, bossOn ? 30 : 34, W - 120, bossOn ? d.color : "#9dff7a");
+    if (this.playerBoss && this.phase !== "break") fitText(ctx, `👑 TRÙM NGƯỜI XEM: ${this.playerBoss.name.toUpperCase()} 👑`, CX, SAFE.top + 22, 30, W - 120, "#ffd55a");
+    else fitText(ctx, bossOn ? `★ ${this.bossLabel()}: ${d.name.toUpperCase()} ★` : "BẢO VỆ TRÁI ĐẤT", CX, SAFE.top + 22, bossOn ? 30 : 34, W - 120, bossOn ? d.color : "#9dff7a");
     if (showBar) {
       const x = 90;
       const y = SAFE.top + 50;
@@ -3493,7 +3544,8 @@ export class Game {
 
     if (this.phase === "battle") {
       // gợi ý luân phiên
-      const tip = TIPS[Math.floor(this.time / 3.5) % TIPS.length];
+      const tips = [...TIPS, `👑 QUÀ TỪ ${this.bal.bossGift} XU = VÒNG SAU LÀM TRÙM`, "😈 BÌNH LUẬN “ĐỔI PHE” = THÀNH UFO ĐỎ"];
+      const tip = tips[Math.floor(this.time / 3.5) % tips.length];
       this.drawFund(ctx);
       const ab = this.abilityLine();
       if (ab) {
@@ -3650,7 +3702,10 @@ export class Game {
         ctx.fill();
       }
       ctx.restore();
-      if (this.boss) {
+      if (this.playerBoss) {
+        if (blink) fitText(ctx, "👑 TRÙM NGƯỜI XEM XUẤT HIỆN 👑", CX, 775, 48, W - 80, "#fff");
+        fitText(ctx, `${this.playerBoss.name.toUpperCase()} ĐIỀU KHIỂN ${d.name.toUpperCase()}!`, CX, 845, 46, W - 80, "#ffd55a");
+      } else if (this.boss) {
         if (blink) fitText(ctx, `⚠ ${this.bossLabel()} XUẤT HIỆN ⚠`, CX, 775, 50, W - 80, "#fff");
         fitText(ctx, d.name.toUpperCase(), CX, 845, 52, W - 80, d.color);
         // thẻ sức mạnh
@@ -3679,7 +3734,10 @@ export class Game {
       ctx.save();
       ctx.translate(CX, 640);
       ctx.scale(k, k);
-      if (this.boss) {
+      if (this.playerBoss) {
+        fitText(ctx, `HẠ GỤC TRÙM ${this.playerBoss.name.toUpperCase()}!`, 0, -30, 66, W - 80, "#ffd55a");
+        text(ctx, `🔥 CHUỖI THẮNG ${this.streak}`, 0, 40, 34, "#ffffff", "center", 900);
+      } else if (this.boss) {
         fitText(ctx, `HẠ GỤC ${d.name.toUpperCase()}!`, 0, -30, 70, W - 80, d.color);
         text(ctx, `🔥 CHUỖI THẮNG ${this.streak}${this.streak >= this.bestStreak && this.streak > 1 ? " · KỶ LỤC MỚI!" : ""}`, 0, 40, 34, "#ffffff", "center", 900);
       } else text(ctx, "TRÁI ĐẤT AN TOÀN!", 0, 0, 78, "#9dff7a", "center", 900);
@@ -3694,8 +3752,13 @@ export class Game {
       ctx.translate(CX, 620);
       ctx.scale(k, k);
       const dd = DEFEATS[d.id];
-      fitText(ctx, dd.title1, 0, -50, 64, W - 80, "#ffffff");
-      fitText(ctx, dd.title2, 0, 30, 92, W - 60, dd.color);
+      if (this.playerBoss) {
+        fitText(ctx, `👑 ${this.playerBoss.name.toUpperCase()}`, 0, -50, 64, W - 80, "#ffd55a");
+        fitText(ctx, "ĐÃ CHIẾM TRÁI ĐẤT!", 0, 30, 88, W - 60, dd.color);
+      } else {
+        fitText(ctx, dd.title1, 0, -50, 64, W - 80, "#ffffff");
+        fitText(ctx, dd.title2, 0, 30, 92, W - 60, dd.color);
+      }
       ctx.restore();
       if (t > 2) {
         ctx.globalAlpha = fade * clamp((t - 2) / 0.4, 0, 1);
@@ -3717,7 +3780,11 @@ export class Game {
       // chuỗi thắng & trùm mốc kế tiếp: giữ người xem ở lại
       const next = nextMilestone(this.streak);
       const nb = BOSSES[milestoneBoss(next)];
-      if (isMilestone(this.streak)) {
+      if (this.bossQueue.length) {
+        ctx.globalAlpha = k * (0.7 + 0.3 * Math.sin(this.time * 8));
+        fitText(ctx, `👑 VÒNG SAU: TRÙM ${this.bossQueue[0].name.toUpperCase()}${this.bossQueue.length > 1 ? ` · còn ${this.bossQueue.length - 1} người chờ` : ""}`, CX, 878, 30, W - 260, "#ffd55a");
+        ctx.globalAlpha = k;
+      } else if (isMilestone(this.streak)) {
         ctx.globalAlpha = k * (0.7 + 0.3 * Math.sin(this.time * 8));
         fitText(ctx, `⚠ VÒNG SAU: TRÙM ${BOSSES[milestoneBoss(this.streak)].name.toUpperCase()}!`, CX, 878, 32, W - 260, BOSSES[milestoneBoss(this.streak)].color);
         ctx.globalAlpha = k;
@@ -3726,6 +3793,7 @@ export class Game {
       }
       text(ctx, `Kỷ lục chuỗi: ${this.bestStreak}`, CX, 918, 22, "rgba(255,255,255,0.7)", "center", 700);
       text(ctx, "❤️ tim · 💬 bình luận · 🎁 quà · ➕ follow", CX, 955, 24, "rgba(255,255,255,0.85)", "center", 700);
+      this.drawGuide(ctx, 1000);
       ctx.globalAlpha = 1;
     }
   }
@@ -3792,6 +3860,231 @@ export class Game {
   }
 
   // ---------- thông tin cho trang thử / chẩn đoán ----------
+  // ================= vai trò người xem: trùm người xem & kẻ phản bội =================
+
+  /** Xử lý tương tác của trùm người xem / kẻ phản bội / lệnh đổi phe. Trả về true nếu đã xử lý xong. */
+  private handleRoles(e: LiveEvent, user: LiveUser, person: Person, fighting: boolean): boolean {
+    if (e.type !== "like" && e.type !== "chat" && e.type !== "gift") return false;
+    const chat = e.type === "chat" ? e.text : "";
+    // 1) trùm người xem: tương tác của họ giúp trùm (hồi máu, có trần 30% máu / vòng), không bắn chính mình
+    if (this.playerBoss?.id === user.id && (this.phase === "battle" || this.phase === "intro")) {
+      if (fighting) {
+        const heal = e.type === "like" ? Math.max(1, e.count) * this.bal.likeDmg * 0.5 : e.type === "chat" ? this.bal.chatDmg : Math.max(1, e.coins) * Math.max(1, e.count) * this.bal.giftDmg * 0.4;
+        this.healBoss(heal, "bossHeal", 0.3, this.ux, this.uy - this.geo.ry);
+      }
+      return true;
+    }
+    const tr = this.traitors.find((t) => !t.dead && t.user.id === user.id);
+    if (tr) {
+      // tặng quà / bình luận "về phe" → quay về phe Trái Đất (quà vẫn bắn như thường)
+      if (e.type === "gift" || isReturn(chat)) {
+        this.releaseTraitor(tr, true);
+        this.toast(`🌍 ${user.name} quay về phe Trái Đất!`, "Hoan nghênh trở lại", "#9dff7a", user, 1);
+        return e.type !== "gift";
+      }
+      if (!fighting) return true;
+      // kẻ phản bội thả tim / bình luận: bắn tia đỏ xuống phố & hồi máu cho UFO (trần 15% máu / vòng)
+      const heal = e.type === "like" ? Math.max(1, e.count) * this.bal.likeDmg * 0.6 : this.bal.chatDmg * 1.5;
+      this.healBoss(heal, "traitorHeal", 0.15, tr.x, tr.y - 40);
+      const victim = this.people.filter((p) => p.suck < 0 && !this.isRoleUser(p.user.id));
+      if (victim.length && this.redBolts.length < 30) {
+        const v = pick(victim);
+        const [vx, vy] = this.personPos(v);
+        this.redBolts.push({ x0: tr.x, y0: tr.y + 24, x1: vx, y1: vy, t0: this.time });
+        v.pulse = 1;
+        this.sfx.laser(tr.x, "zap", false);
+      }
+      return true;
+    }
+    // 2) bình luận đổi phe → UFO đỏ (trong trận, tối đa 8 kẻ phản bội cùng lúc)
+    if (e.type === "chat" && isDefect(chat) && (this.phase === "battle" || this.phase === "intro") && this.ufoAlive) {
+      const cd = this.defectCd.get(user.id) ?? -99;
+      if (this.time < cd) {
+        this.floatText("⏳ chờ chút mới đổi phe lại được", ...this.personPos(person), "#ff8a8a", 22);
+        return true;
+      }
+      if (this.traitors.filter((t) => !t.dead).length >= 8) return false;
+      this.makeTraitor(user, person);
+      return true;
+    }
+    // 3) quà lớn → vào hàng chờ làm trùm (quà vẫn bắn như thường ở vòng này)
+    if (e.type === "gift" && Math.max(1, e.coins) * Math.max(1, e.count) >= this.bal.bossGift) this.queueBoss(user);
+    return false;
+  }
+
+  private isRoleUser(id: string) {
+    return this.playerBoss?.id === id || this.traitors.some((t) => !t.dead && t.user.id === id);
+  }
+
+  private healBoss(amount: number, pool: "bossHeal" | "traitorHeal", cap: number, x: number, y: number) {
+    if (this.phase !== "battle" || this.hp <= 0) return;
+    const room = Math.max(0, this.hpMax * cap - this[pool]);
+    const h = Math.min(amount, room, this.hpMax - this.hp);
+    if (h <= 0) return;
+    this.hp += h;
+    this[pool] += h;
+    if (h >= 2 || Math.random() < 0.3) this.floatText(`+${fmt(h)}`, x + rand(-30, 30), y, "#7dff9a", h >= 10 ? 30 : 22);
+  }
+
+  private queueBoss(user: LiveUser) {
+    if (this.playerBoss?.id === user.id) return;
+    if (this.bossQueue.some((u) => u.id === user.id)) return;
+    if (this.bossQueue.length >= 10) return;
+    this.bossQueue.push(user);
+    const n = this.bossQueue.length;
+    this.toast(`👑 ${user.name} sẽ làm TRÙM UFO!`, n === 1 ? "Ở vòng tiếp theo — cả phòng chuẩn bị!" : `Xếp hàng thứ ${n}`, "#ffd55a", user, 3);
+    this.sfx.golden();
+  }
+
+  private makeTraitor(user: LiveUser, person: Person) {
+    const [x, y] = this.personPos(person);
+    const max = Math.max(20, Math.round(this.hpMax * 0.04));
+    this.traitors.push({ user, x, y, tx: x, ty: PEOPLE_Y0 - 220, hp: max, max, t0: this.time, hitT: -99, dead: false });
+    this.sparks(x, y, 30, 600);
+    this.blasts.push({ x, y, t: this.time, color: "#ff3b4e", size: 90 });
+    this.toast(`😈 ${user.name} ĐỔI PHE!`, "Thành UFO đỏ — cả phòng bắn hạ kẻ phản bội!", "#ff5a6e", user, 2);
+    this.sfx.bossAttack(this.bossDef.id);
+  }
+
+  /** thả kẻ phản bội về phe Trái Đất (bong bóng bật ra lại dưới phố) */
+  private releaseTraitor(tr: Traitor, cooldown: boolean) {
+    tr.dead = true;
+    if (cooldown) this.defectCd.set(tr.user.id, this.time + 20);
+    const p = this.people.find((q) => q.user.id === tr.user.id);
+    if (p) {
+      p.born = this.time;
+      p.pulse = 1;
+    }
+  }
+
+  private hitTraitor(tr: Traitor, dmg: number, user: LiveUser, boost: boolean) {
+    if (boost && this.golden) dmg *= 2;
+    const d = Math.min(tr.hp, dmg);
+    tr.hp -= d;
+    tr.hitT = this.time;
+    const rec = this.roundDmg.get(user.id) ?? { user, dmg: 0 };
+    rec.dmg += d;
+    this.roundDmg.set(user.id, rec);
+    if (tr.hp <= 0 && !tr.dead) {
+      this.blasts.push({ x: tr.x, y: tr.y, t: this.time, color: "#ff3b4e", size: 150 });
+      this.firework(tr.x, tr.y, "#ff3b4e", 36);
+      this.sparks(tr.x, tr.y, 40, 800);
+      this.shake = Math.max(this.shake, 8);
+      this.sfx.hit(true, tr.x);
+      this.toast(`💥 ${user.name} bắn hạ kẻ phản bội!`, `${tr.user.name} bị đưa về phe Trái Đất`, "#ff8a5a", user, 2);
+      this.releaseTraitor(tr, true);
+    }
+  }
+
+  private updateTraitors(dt: number) {
+    const left = this.visible.left + 90;
+    const right = this.visible.right - 90;
+    for (const tr of this.traitors) {
+      if (tr.dead) continue;
+      // lượn trong vùng trên đầu người chơi, đổi điểm đến khi tới gần
+      if (Math.hypot(tr.tx - tr.x, tr.ty - tr.y) < 30) {
+        tr.tx = rand(left, Math.max(left, right));
+        tr.ty = rand(PEOPLE_Y0 - 330, PEOPLE_Y0 - 90);
+      }
+      tr.x = approach(tr.x, tr.tx, 1.1, dt);
+      tr.y = approach(tr.y, tr.ty, 1.1, dt);
+    }
+    this.traitors = this.traitors.filter((t) => !t.dead);
+    this.redBolts = this.redBolts.filter((b) => this.time - b.t0 < 0.45);
+  }
+
+  private drawTraitors(ctx: CanvasRenderingContext2D) {
+    if (this.redBolts.length) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineCap = "round";
+      for (const b of this.redBolts) {
+        const k = 1 - (this.time - b.t0) / 0.45;
+        for (const [w, col] of [[16, "rgba(255,30,50,0.3)"], [5, "rgba(255,90,90,0.9)"], [2, "rgba(255,235,230,1)"]] as const) {
+          ctx.globalAlpha = k;
+          ctx.strokeStyle = col;
+          ctx.lineWidth = w;
+          ctx.beginPath();
+          ctx.moveTo(b.x0, b.y0);
+          ctx.lineTo(b.x1, b.y1);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+    for (const tr of this.traitors) {
+      if (tr.dead) continue;
+      drawTraitor(ctx, tr, this.avatars.get(tr.user), this.time, (s, x, y) => text(ctx, short(s, 14), x, y, 22, "#ffb0b0", "center", 800));
+    }
+  }
+
+  /** ảnh đại diện của trùm người xem gắn trên thân trùm + vương miện & tên */
+  private drawPlayerBoss(ctx: CanvasRenderingContext2D) {
+    const u = this.playerBoss!;
+    const r = 64;
+    const x = this.ux;
+    const y = this.uy + this.geo.cy - this.geo.ry * 0.35;
+    ctx.save();
+    ctx.globalAlpha = this.cloaked ? 0.35 : 1;
+    const g = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 1.9);
+    g.addColorStop(0, "rgba(255,213,90,0.55)");
+    g.addColorStop(1, "rgba(255,213,90,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(this.avatars.get(u), x - r, y - r, r * 2, r * 2);
+    ctx.restore();
+    ctx.strokeStyle = "#ffd55a";
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 2, 0, Math.PI * 2);
+    ctx.stroke();
+    text(ctx, "👑", x, y - r - 22, 46, "#fff", "center", 400);
+    const name = short(u.name, 16);
+    ctx.font = font(900, 26);
+    const w = ctx.measureText(name).width + 30;
+    ctx.fillStyle = "rgba(40,24,0,0.85)";
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y + r + 8, w, 38, 19);
+    ctx.fill();
+    text(ctx, name, x, y + r + 28, 26, "#ffd55a", "center", 900);
+    ctx.restore();
+  }
+
+  /** Bảng hướng dẫn tương tác (màn nghỉ giữa các vòng) */
+  private drawGuide(ctx: CanvasRenderingContext2D, y0: number) {
+    const rows = guideRows(this.bal.bossGift);
+    const half = Math.ceil(rows.length / 2);
+    const rh = 40;
+    const x0 = 70;
+    const w = W - 140;
+    const h = 64 + half * rh;
+    ctx.fillStyle = "rgba(5,8,20,0.92)";
+    ctx.beginPath();
+    ctx.roundRect(x0, y0, w, h, 28);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(157,255,122,0.5)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    text(ctx, "📖 CÁCH CHƠI", CX, y0 + 32, 28, "#9dff7a", "center", 900);
+    const colW = w / 2;
+    rows.forEach(([icon, how, what], i) => {
+      const col = i < half ? 0 : 1;
+      const row = i < half ? i : i - half;
+      const x = x0 + 24 + col * colW;
+      const y = y0 + 80 + row * rh;
+      const special = icon === "👑" || icon === "😈" || icon === "🌍";
+      text(ctx, icon, x + 16, y, 26, "#fff", "center", 400);
+      fitText(ctx, how, x + 40, y, 21, 190, special ? "#ffd55a" : "#ffffff", 800, "left");
+      fitText(ctx, `→ ${what}`, x + 236, y, 20, colW - 260, special ? "#ffd55a" : "#ffe08a", 700, "left");
+    });
+  }
+
   stats() {
     return {
       phase: this.phase,
@@ -3834,11 +4127,11 @@ function drawHeart(ctx: CanvasRenderingContext2D, x: number, y: number, s: numbe
 }
 
 /** Chữ tự thu nhỏ cho vừa bề rộng */
-function fitText(ctx: CanvasRenderingContext2D, str: string, x: number, y: number, size: number, maxW: number, color: string, weight = 900) {
+function fitText(ctx: CanvasRenderingContext2D, str: string, x: number, y: number, size: number, maxW: number, color: string, weight = 900, align: CanvasTextAlign = "center") {
   ctx.font = font(weight, size);
   ctx.letterSpacing = size >= 28 ? "1px" : "0px";
   const w = ctx.measureText(str).width;
-  text(ctx, str, x, y, w > maxW ? Math.floor((size * maxW) / w) : size, color, "center", weight);
+  text(ctx, str, x, y, w > maxW ? Math.floor((size * maxW) / w) : size, color, align, weight);
 }
 
 /** Chữ xuống dòng theo bề rộng (căn giữa) */

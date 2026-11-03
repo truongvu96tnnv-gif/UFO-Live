@@ -64,6 +64,8 @@ export class DemoCrowd {
     if (!this.present.size) return;
     if (Math.random() < dt * this.rate(5)) this.sink({ type: "like", user: this.someone(), count: 1 + ((Math.random() * 12) | 0) });
     if (Math.random() < dt * this.rate(0.8)) this.sink({ type: "chat", user: this.someone(), text: CHATS[(Math.random() * CHATS.length) | 0] });
+    // thỉnh thoảng có người "đổi phe" / "về phe" để thấy UFO đỏ trong chế độ thử
+    if (Math.random() < dt * 0.04) this.sink({ type: "chat", user: this.someone(), text: Math.random() < 0.7 ? "đổi phe" : "về phe" });
     if (Math.random() < dt * this.rate(0.14)) {
       let r = Math.random() * TOTAL_W;
       const g = GIFTS[WEIGHTS.findIndex((w) => (r -= w) < 0)] ?? GIFTS[0];
