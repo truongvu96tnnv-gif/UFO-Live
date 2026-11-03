@@ -15,11 +15,13 @@
   },
   "dependencies": {
     "@fontsource/chakra-petch": "^5.3.0",
+    "three": "^0.170.0",
     "tiktok-live-connector": "^2.5.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/three": "^0.170.0",
     "@types/ws": "^8.5.13",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",

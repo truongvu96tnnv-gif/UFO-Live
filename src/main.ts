@@ -6,6 +6,7 @@ import { Game, type Phase } from "./game/game";
 import { H, W } from "./game/stage";
 import { DemoCrowd } from "./live/demo";
 import { addBannedWords } from "./live/filter";
+import { World3D } from "./three/world";
 import type { LiveEvent, LiveUser } from "./live/events";
 import { connectBridge } from "./live/socket";
 import { mountDemoPanel } from "./ui/panel";
@@ -20,6 +21,22 @@ game.sfx.musicOn = q.get("music") !== "0";
 if (q.get("vol")) game.sfx.musicLevel = Math.max(0, Math.min(1, +q.get("vol")! || 0.5));
 // OBS / TikTok LIVE Studio cho phát tiếng ngay; trình duyệt thường thì chờ lần chạm/phím đầu tiên
 game.sfx.unlock();
+
+// Lớp 3D (three.js) nằm dưới canvas 2D: trời, thành phố, trùm, laser, tên lửa, vụ nổ. ?3d=0 → đồ hoạ 2D cũ.
+// ?bloom=0 tắt hiệu ứng toả sáng, ?q=0.5..1 giảm độ phân giải 3D cho máy yếu.
+let world: World3D | null = null;
+const glCanvas = document.createElement("canvas");
+glCanvas.style.position = "fixed";
+if (q.get("3d") !== "0") {
+  try {
+    const touch = matchMedia("(pointer: coarse)").matches;
+    world = new World3D(glCanvas, { bloom: q.get("bloom") !== "0", quality: Math.min(1, Math.max(0.4, +(q.get("q") ?? (touch ? 0.75 : 1)) || 1)) });
+    game.layer3d = true;
+  } catch (err) {
+    console.warn("Không bật được WebGL — dùng đồ hoạ 2D", err);
+    world = null;
+  }
+}
 
 const canvas = document.createElement("canvas");
 canvas.width = W;
@@ -40,15 +57,19 @@ function fit() {
   const left = Math.max(0, (W - vw / s) / 2);
   const top = Math.max(0, (H - vh / s) / 2);
   game.setVisibleBounds(left, top, W - left, H - top);
-  canvas.style.width = `${W * s}px`;
-  canvas.style.height = `${H * s}px`;
-  canvas.style.left = `${(vw - W * s) / 2}px`;
-  canvas.style.top = `${(vh - H * s) / 2}px`;
+  for (const c of [canvas, glCanvas]) {
+    c.style.width = `${W * s}px`;
+    c.style.height = `${H * s}px`;
+    c.style.left = `${(vw - W * s) / 2}px`;
+    c.style.top = `${(vh - H * s) / 2}px`;
+  }
+  world?.resize(W * s, H * s);
 }
 addEventListener("resize", fit);
 visualViewport?.addEventListener("resize", fit);
 document.addEventListener("fullscreenchange", () => setTimeout(fit, 50));
 fit();
+if (world) document.body.appendChild(glCanvas);
 document.body.appendChild(canvas);
 const ctx = canvas.getContext("2d")!;
 
@@ -217,6 +238,10 @@ function frame(now: number) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   game.update(dt);
+  if (world) {
+    ctx.clearRect(0, 0, W, H);
+    world.render(game.view3d());
+  }
   game.draw(ctx);
   requestAnimationFrame(frame);
 }

@@ -9,6 +9,7 @@ import { Scene } from "./scene";
 import { SpriteAnim } from "./anim";
 import { LASER_KINDS } from "./audio/voices";
 import { drawWarped } from "./warp";
+import type { View3D } from "../three/view";
 import { drawTraitor, guideRows, isDefect, isReturn, type Traitor } from "./roles";
 import { DEFEATS, FATE_DUR, FATE_STAYS, drawCity, drawScreen, type Fate } from "./defeat";
 import { bossOver, bossUnder, MOTION, type FxCtx } from "./bossfx";
@@ -357,6 +358,8 @@ export class Game {
   simulatedPlayers = 0;
   /** hiện chữ bình luận trên bong bóng (?bubbles=0 để tắt hẳn) */
   showChat = true;
+  /** chế độ 3D: lớp WebGL (src/three) vẽ trời, thành phố, trùm, laser, tên lửa, vụ nổ; canvas 2D chỉ vẽ phần còn lại */
+  layer3d = false;
 
   constructor(private bal: Balance) {
     const bg = makeBackground();
@@ -1488,22 +1491,26 @@ export class Game {
       // hố đen nuốt cả phố: thế giới nghiêng & co dần về phía miệng
       const k = clamp((this.phaseT - 0.5) / 4.5, 0, 1);
       // góc lộ ra khi thế giới co & xoay là khoảng không vũ trụ tối, không để lộ nền canvas
-      ctx.fillStyle = "#04030a";
-      ctx.fillRect(-60, -60, W + 120, H + 120);
+      if (!this.layer3d) {
+        ctx.fillStyle = "#04030a";
+        ctx.fillRect(-60, -60, W + 120, H + 120);
+      }
       ctx.translate(env.mx, env.my);
       ctx.rotate(0.22 * k * k);
       ctx.scale(1 - 0.18 * k, 1 - 0.18 * k);
       ctx.translate(-env.mx, -env.my);
     }
-    ctx.drawImage(this.bg, 0, 0);
-    this.drawTowerLights(ctx);
-    this.scene.drawBack(ctx);
+    if (!this.layer3d) {
+      ctx.drawImage(this.bg, 0, 0);
+      this.drawTowerLights(ctx);
+      this.scene.drawBack(ctx);
+    }
     if (lose) drawCity(ctx, lose.city, env);
 
     const back = this.people.filter((p) => p.z < 0.85);
     const front = this.people.filter((p) => p.z >= 0.85);
     for (const p of back) this.drawPerson(ctx, p);
-    this.drawBeam(ctx);
+    if (!this.layer3d) this.drawBeam(ctx);
     for (const p of front) this.drawPerson(ctx, p);
     this.drawShield(ctx);
     this.drawSmoke(ctx);
@@ -1513,7 +1520,7 @@ export class Game {
       ctx.fillStyle = "rgba(0,4,24,0.4)";
       ctx.fillRect(-40, -40, W + 80, H + 80);
     }
-    if (this.ufoAlive) this.drawUfo(ctx);
+    if (this.ufoAlive && !this.layer3d) this.drawUfo(ctx);
     if (this.ufoAlive && this.playerBoss) this.drawPlayerBoss(ctx);
     this.drawTraitors(ctx);
     this.drawAbilities(ctx);
@@ -1525,7 +1532,7 @@ export class Game {
     this.drawCrates(ctx);
     this.drawShots(ctx, true);
     this.drawFx(ctx);
-    this.scene.drawFront(ctx);
+    if (!this.layer3d) this.scene.drawFront(ctx);
     ctx.restore();
 
     if (lose) drawScreen(ctx, lose.city, env);
@@ -3169,7 +3176,7 @@ export class Game {
     ctx.globalCompositeOperation = "lighter";
     // laser
     for (const s of this.shots) {
-      if (s.kind !== "laser" || this.time < s.t0) continue;
+      if (this.layer3d || s.kind !== "laser" || this.time < s.t0) continue;
       const age = this.time - s.t0;
       const u = clamp(age / s.dur, 0, 1);
       const fade = clamp(1 - (age - s.dur) / 0.2, 0, 1);
@@ -3203,7 +3210,7 @@ export class Game {
     ctx.globalAlpha = 1;
     // lửa đuôi tên lửa
     for (const s of this.shots) {
-      if (!isRocket(s.kind) || s.done || this.time < s.t0) continue;
+      if (this.layer3d || !isRocket(s.kind) || s.done || this.time < s.t0) continue;
       const { x, y, ang, sc } = this.rocketPose(s);
       const fl = 26 + Math.random() * 12;
       ctx.globalAlpha = 0.9;
@@ -3265,6 +3272,14 @@ export class Game {
     for (const s of this.shots) {
       if (!isRocket(s.kind) || s.done || this.time < s.t0) continue;
       const { x, y, ang, sc } = this.rocketPose(s);
+      if (this.layer3d) {
+        // 3D vẽ thân tên lửa; 2D chỉ thêm ảnh & tên người tặng trên tên lửa lớn
+        if (s.kind !== "rocket") {
+          ctx.drawImage(this.avatars.get(s.user), x - 9 * sc, y - 9 * sc - 14 * sc, 18 * sc, 18 * sc);
+          if (s.label) text(ctx, short(s.user.name, 14), x, y + 22 * sc, 22, "#ffd55a", "center", 800);
+        }
+        continue;
+      }
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(ang);
@@ -3319,6 +3334,7 @@ export class Game {
     ctx.globalCompositeOperation = "lighter";
     ctx.lineCap = "round";
     const line = (x0: number, y0: number, x1: number, y1: number, w: number, col: string) => {
+      if (this.layer3d) return;
       ctx.strokeStyle = col;
       ctx.lineWidth = w;
       ctx.beginPath();
@@ -3335,8 +3351,8 @@ export class Game {
       if (b.style === "earth") {
         for (const [w, col] of [[120, "rgba(255,90,110,0.25)"], [70, "rgba(255,160,120,0.45)"], [30, "rgba(255,240,220,0.9)"]] as const) line(b.x, b.y, x1, y1, w * k, col);
         ctx.globalAlpha = k;
-        ctx.drawImage(this.glows[1], x1 - 160, y1 - 160, 320, 320);
-        ctx.drawImage(this.glows[0], b.x - 120, b.y - 120, 240, 240);
+        if (!this.layer3d) ctx.drawImage(this.glows[1], x1 - 160, y1 - 160, 320, 320);
+        if (!this.layer3d) ctx.drawImage(this.glows[0], b.x - 120, b.y - 120, 240, 240);
         ctx.globalAlpha = 1;
         text(ctx, short(b.user.name, 16), b.x, b.y - 150, 30, "#fff", "center", 900);
       } else if (b.style === "twin") {
@@ -3346,7 +3362,7 @@ export class Game {
           line(b.x + dx, b.y, x1 + sweep + dx * 3, y1, 16 * k, col);
           line(b.x + dx, b.y, x1 + sweep + dx * 3, y1, 5 * k, "rgba(255,255,255,0.95)");
           ctx.globalAlpha = k;
-          ctx.drawImage(this.glows[2], x1 + sweep + dx * 3 - 50, y1 - 50, 100, 100);
+          if (!this.layer3d) ctx.drawImage(this.glows[2], x1 + sweep + dx * 3 - 50, y1 - 50, 100, 100);
           ctx.globalAlpha = 1;
         }
         ctx.globalCompositeOperation = "source-over";
@@ -3357,7 +3373,7 @@ export class Game {
         const x0 = x1 + Math.sin(this.time * 3) * 10;
         for (const [w, col] of [[300, "rgba(90,160,255,0.18)"], [170, "rgba(140,200,255,0.35)"], [70, "rgba(235,245,255,0.95)"]] as const) line(x0, -60, x1, y1, w * k, col);
         ctx.globalAlpha = k;
-        ctx.drawImage(this.glows[2], x1 - 260, y1 - 200, 520, 400);
+        if (!this.layer3d) ctx.drawImage(this.glows[2], x1 - 260, y1 - 200, 520, 400);
         ctx.globalAlpha = 1;
       }
     }
@@ -4083,6 +4099,71 @@ export class Game {
       fitText(ctx, how, x + 40, y, 21, 190, special ? "#ffd55a" : "#ffffff", 800, "left");
       fitText(ctx, `→ ${what}`, x + 236, y, 20, colW - 260, special ? "#ffd55a" : "#ffe08a", 700, "left");
     });
+  }
+
+  /** Ảnh chụp trạng thái cho lớp 3D (gọi mỗi khung hình sau update) */
+  view3d(): View3D {
+    const t = this.time;
+    const lasers: View3D["lasers"] = [];
+    const rockets: View3D["rockets"] = [];
+    for (const s of this.shots) {
+      if (t < s.t0) continue;
+      if (s.kind === "laser") {
+        const age = t - s.t0;
+        const u = clamp(age / s.dur, 0, 1);
+        const fade = clamp(1 - (age - s.dur) / 0.2, 0, 1);
+        if (fade <= 0 || !this.ufoAlive) continue;
+        const [tx, ty] = this.shotTarget(s);
+        const tail = clamp(u - 0.35, 0, 1);
+        lasers.push({ ref: s, x0: lerp(s.sx, tx, tail), y0: lerp(s.sy, ty, tail), x1: lerp(s.sx, tx, u), y1: lerp(s.sy, ty, u), color: s.color, fade, gold: s.color === "#ffd55a" });
+      } else if (isRocket(s.kind) && !s.done) {
+        const { x, y, ang, sc } = this.rocketPose(s);
+        rockets.push({ ref: s, kind: s.kind as "rocket" | "heavy" | "mega", x, y, ang, sc, color: s.color });
+      }
+    }
+    const beams: View3D["beams"] = [];
+    if (this.ufoAlive) {
+      for (const b of this.beams) {
+        const u = (t - b.t0) / b.dur;
+        if (u < 0 || u > 1.15) continue;
+        const k = u < 0.08 ? u / 0.08 : u > 1 ? 1 - (u - 1) / 0.15 : 1;
+        const sweep = b.style === "twin" ? Math.sin(t * 6) * 0.2 * this.geo.rx : 0;
+        beams.push({ ref: b, style: b.style, x0: b.style === "orbital" ? this.ux + Math.sin(t * 3) * 10 : b.x, y0: b.style === "orbital" ? -60 : b.y, x1: this.ux + sweep, y1: this.uy + 20, k });
+      }
+    }
+    const charge = this.charge ? clamp((t - this.charge.t0) / (this.bossDef.ability === "breath" ? 4 : 5), 0, 1) : this.devour ? clamp((t - this.devour.t0) / 5, 0, 1) : this.grab ? 1 : 0;
+    let tiltWorld: View3D["tiltWorld"] = null;
+    if (this.phase === "lose" && DEFEATS[this.bossDef.id].city === "tilt") {
+      const env = this.defeatEnv();
+      tiltWorld = { k: clamp((this.phaseT - 0.5) / 4.5, 0, 1), mx: env.mx, my: env.my };
+    }
+    return {
+      time: t,
+      phase: this.phase,
+      phaseT: this.phaseT,
+      boss: this.bossDef.id,
+      bossColor: this.bossDef.color,
+      alive: this.ufoAlive,
+      ux: this.ux,
+      uy: this.uy,
+      tilt: this.tilt,
+      width: BOSS_ART[this.bossDef.id].width,
+      belly: this.belly,
+      hitFlash: this.hitFlash,
+      cloak: this.cloak,
+      beam: this.beam,
+      progress: this.progress,
+      golden: this.golden,
+      shake: this.shake,
+      flash: this.flash,
+      tiltWorld,
+      charge,
+      shield: this.shieldMax > 0 ? this.shieldHp / this.shieldMax : 0,
+      lasers,
+      rockets,
+      blasts: this.blasts.map((b) => ({ ref: b, x: b.x, y: b.y, age: t - b.t, color: b.color, size: b.size })),
+      beams,
+    };
   }
 
   stats() {

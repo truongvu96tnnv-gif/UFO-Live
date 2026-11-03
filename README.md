@@ -93,6 +93,18 @@ Xem nhanh: bấm nút **💀 Cho thua** ở chế độ demo (hoặc phím `K`) 
 
 Những trùm ở lại (vàng, kén, pha lê) giữ người xem tại chỗ suốt màn thua; sang màn nghỉ họ vỡ vỏ bung tia lửa rồi trở lại bình thường.
 
+## Đồ hoạ 3D (three.js) — nhánh `threejs-3d`
+
+Thế giới game được dựng lại bằng **three.js** trên một lớp WebGL nằm dưới canvas 2D:
+
+- **Thành phố 3D thật**: 8 lớp toà nhà xếp theo chiều sâu, cửa sổ phát sáng, đèn đỏ nóc nhà nhấp nháy, đèn pha quét trời, mây trôi, sương mù theo khoảng cách, trời sao + trăng.
+- **12 model trùm 3D** dựng bằng hình khối (không cần file model): đĩa bay thân tiện kim loại + vòm kính + đèn vành chạy đuổi, Đĩa Vàng phản chiếu, Bạch Tuộc 8 xúc tu uốn lượn, cánh bay tàng hình viền neon, Nhện cơ khí 8 chân bước + 2 súng gatling quay, Kẻ Nuốt Hành Tinh gai + miệng hố đen đĩa bồi tụ, Pháo Đài Tinh Thể lục giác + vòng phù văn, Phi Thuyền Mẹ 3 tầng, Hành Tinh dung nham + vành đai + mắt, Rồng thân đốt + cánh thiên hà vỗ.
+- **Đạn & nổ phát sáng**: laser, tên lửa 3D (thân, mũi, cánh, lửa đuôi), tia năng lượng quà lớn, cầu lửa + sóng xung kích + chớp sáng chiếu lên phố, tia hút, khiên tinh thể dạng lưới; hậu kỳ **bloom** (toả sáng).
+- Camera phối cảnh đặt thấp nhìn lên đĩa bay; `setViewOffset` giữ mặt phẳng chơi trùng khít toạ độ 1080×1920 nên bong bóng người xem, chữ, HUD (vẫn vẽ 2D) khớp đúng vị trí trùm. Rung màn hình, cảnh "nuốt cả phố" cũng chạy trong 3D.
+- Mã: `src/three/world.ts` (cảnh, ánh sáng, hiệu ứng), `src/three/models.ts` (12 trùm), `src/three/view.ts` (ảnh chụp trạng thái game mỗi khung hình — logic game không đổi).
+
+Tham số: `?3d=0` quay về đồ hoạ 2D cũ · `?bloom=0` tắt toả sáng (máy yếu) · `?q=0.5..1` tỉ lệ độ phân giải 3D (mặc định 1 trên máy tính, 0,75 trên điện thoại). Trình duyệt không có WebGL tự dùng 2D.
+
 ## Đồ hoạ
 
 - **Trùm** dùng art vẽ tay trong `src/assets/bosses/*.webp`, tách nền từ `art-source/bosses-sheet.webp` bằng `tools/cut_bosses.py` (model BiRefNet + bước làm sạch: bỏ khói/sương/vạch lưới, khử viền màu nền, phóng 2× làm nét).
