@@ -12,7 +12,7 @@
  * Chạy:  TIKTOK_USERNAME=ten_kenh npm run bridge      (hoặc: npm run bridge -- ten_kenh)
  * Tuỳ chọn: PORT (mặc định 8787), HOST (mặc định 127.0.0.1), SIGN_API_KEY (khoá Euler Stream nếu cần).
  */
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,6 +29,9 @@ const HOST = process.env.HOST ?? "127.0.0.1";
 let USERNAME = (process.argv[2] ?? process.env.TIKTOK_USERNAME ?? "").replace(/^@/, "").trim();
 const SIGN_API_KEY = process.env.SIGN_API_KEY || undefined;
 const DIST = resolve(fileURLToPath(new URL("../dist", import.meta.url)));
+/** thư mục lồng tiếng: thả file mp3/wav/ogg/m4a tên đúng như voice/voice-lines.csv, tải lại trang game là có tiếng */
+const VOICE_DIR = resolve(fileURLToPath(new URL("../voice", import.meta.url)));
+const VOICE_EXT = /\.(mp3|wav|ogg|m4a)$/i;
 
 // ---------------- WebSocket tới trang game ----------------
 
@@ -120,6 +123,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   if (url.pathname === "/emit" && req.method === "POST") return emit(req, res);
   if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, roomId: roomIdNow, roomStatus, clients: wss.clients.size, viewers: viewerCount, events: counts, lastEventAt, tiktokPackets: raw, lastPacketAt }));
   if (req.method !== "GET" && req.method !== "HEAD") return void res.writeHead(405).end();
+  if (url.pathname.startsWith("/voice/")) return voiceRoute(decodeURIComponent(url.pathname.slice(7)), res);
 
   if (!existsSync(DIST)) {
     res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
@@ -315,6 +319,20 @@ server.listen(PORT, HOST, () => {
   if (USERNAME) void connectTikTok();
   else console.log("  Chưa đặt TIKTOK_USERNAME — chỉ phục vụ trang game và POST /emit.");
 });
+
+/** /voice/manifest.json = danh sách file đang có (quét mỗi lần gọi); /voice/<file> = file âm thanh */
+function voiceRoute(name: string, res: ServerResponse) {
+  if (name === "manifest.json") {
+    const files = existsSync(VOICE_DIR) ? readdirSync(VOICE_DIR).filter((f) => VOICE_EXT.test(f)).sort() : [];
+    return void res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify({ files }));
+  }
+  if (!VOICE_EXT.test(name) || name.includes("/") || name.includes("\\") || name.includes("..")) return void res.writeHead(404).end();
+  const file = join(VOICE_DIR, name);
+  if (!existsSync(file)) return void res.writeHead(404).end();
+  const type = { ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg", ".m4a": "audio/mp4" }[extname(file).toLowerCase()] ?? "application/octet-stream";
+  res.writeHead(200, { "content-type": type, "cache-control": "no-cache" });
+  createReadStream(file).pipe(res);
+}
 
 async function controlRoute(req: IncomingMessage, res: ServerResponse) {
   const respond = (code: number, data: unknown) => res.writeHead(code, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(data));

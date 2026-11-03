@@ -93,6 +93,16 @@ Xem nhanh: bấm nút **💀 Cho thua** ở chế độ demo (hoặc phím `K`) 
 
 Những trùm ở lại (vàng, kén, pha lê) giữ người xem tại chỗ suốt màn thua; sang màn nghỉ họ vỡ vỏ bung tia lửa rồi trở lại bình thường.
 
+## Lồng tiếng (ElevenLabs)
+
+Game có sẵn **100 câu thoại** cho 2 giọng — 🎙 bình luận viên (`mc`) và 👽 giọng trùm (`ufo`) — gắn vào từng khoảnh khắc: mở màn, đếm ngược, UFO/trùm xuất hiện + câu khiêu khích riêng của từng trùm, khai hoả, nửa máu, sắp chạm đất, đạn vàng, rương, cảm ơn quà/follow/chia sẻ, từng kỹ năng trùm, trùm người xem, kẻ phản bội, thắng/MVP/kỷ lục, thua (mỗi trùm một câu).
+
+- Kịch bản: **`voice/KICH-BAN.md`** (bảng đọc nhanh, có gợi ý giọng) và **`voice/voice-lines.csv`** (mở bằng Excel). Nguồn gốc ở `src/game/voice-lines.ts`; sửa câu xong chạy `npm run voice:list` để xuất lại.
+- Gen trong ElevenLabs, tải **mp3** (hoặc wav/ogg/m4a), đặt tên đúng cột *Tên file*, bỏ vào thư mục **`voice/`** → tải lại trang game là có tiếng (bridge đọc thư mục mỗi lần tải trang, không cần build lại). Câu nào chưa có file thì game im lặng ở chỗ đó.
+- Gen tự động cả bộ: `ELEVENLABS_API_KEY=… ELEVEN_VOICE_MC=<voice id> ELEVEN_VOICE_UFO=<voice id> npm run voice:gen` (mặc định model `eleven_v3`, dùng thẻ cảm xúc; `ELEVEN_MODEL=eleven_multilingual_v2` để dùng lời không thẻ; `-- --force` gen lại, `-- --only lose_` gen 1 nhóm).
+- Khi đang nói, nhạc nền tự hạ còn ~38% và hiệu ứng ~72%. Câu quan trọng (mở/kết trận) cắt câu phụ; các câu khác xếp hàng tối đa 3 câu, quá 6 giây thì bỏ; câu cảm ơn có thời gian nghỉ để không nói lặp khi live đông.
+- `?voice=0.8` chỉnh âm lượng lồng tiếng, `?voice=0` tắt hẳn. Bản HTML offline (không qua bridge) không có lồng tiếng.
+
 ## Đồ hoạ
 
 - **Trùm** dùng art vẽ tay trong `src/assets/bosses/*.webp`, tách nền từ `art-source/bosses-sheet.webp` bằng `tools/cut_bosses.py` (model BiRefNet + bước làm sạch: bỏ khói/sương/vạch lưới, khử viền màu nền, phóng 2× làm nét).

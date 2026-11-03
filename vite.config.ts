@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => ({
       "/api": BRIDGE,
       "/health": BRIDGE,
       "/control": BRIDGE,
+      "/voice": BRIDGE,
     },
   },
   // mode "embed": nhúng mọi ảnh & font vào JS/CSS → scripts/embed.mjs gộp thành 1 file HTML chạy offline

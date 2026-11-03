@@ -16,6 +16,9 @@ export class Engine {
   readonly music: GainNode;
   readonly duck: GainNode;
   readonly sfx: GainNode;
+  /** hạ nhạc nền / hiệu ứng khi đang lồng tiếng (1 = bình thường) */
+  readonly musicDuck: GainNode;
+  readonly sfxDuck: GainNode;
   readonly verb: GainNode;
   readonly noise: AudioBuffer;
   /** 2 giây tiếng lách tách dựng sẵn (mảnh vỡ, tàn lửa) — 1 nguồn thay cho hàng chục nguồn nhỏ */
@@ -40,14 +43,18 @@ export class Engine {
     this.master.gain.value = 0.85;
     this.master.connect(comp).connect(limit).connect(ctx.destination);
 
+    this.musicDuck = ctx.createGain();
+    this.musicDuck.connect(this.master);
+    this.sfxDuck = ctx.createGain();
+    this.sfxDuck.connect(this.master);
     this.music = ctx.createGain();
     this.music.gain.value = 0.5;
-    this.music.connect(this.master);
+    this.music.connect(this.musicDuck);
     this.duck = ctx.createGain();
     this.duck.connect(this.music);
     this.sfx = ctx.createGain();
     this.sfx.gain.value = 0.9;
-    this.sfx.connect(this.master);
+    this.sfx.connect(this.sfxDuck);
 
     // phòng vang: xung phản hồi tự tạo (nhiễu stereo tắt dần ~2,6 s)
     const conv = ctx.createConvolver();

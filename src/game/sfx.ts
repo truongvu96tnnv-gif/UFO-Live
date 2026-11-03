@@ -1,6 +1,7 @@
 import { Engine } from "./audio/engine";
 import * as fx from "./audio/fx";
 import * as vo from "./audio/voices";
+import { VoicePlayer } from "./audio/voice";
 import { Music, type Mode } from "./audio/music";
 import type { BossId } from "./bosses";
 
@@ -44,6 +45,9 @@ export class Sfx {
   private _muted = false;
   private _musicOn = true;
   musicLevel = 0.5;
+  /** âm lượng lồng tiếng (?voice=0 để tắt hẳn, ?voice=1.2 to hơn) */
+  voiceLevel = 1;
+  private voice: VoicePlayer | null = null;
 
   /** đã phát được tiếng chưa (trình duyệt chặn tới khi người dùng chạm) */
   get running() {
@@ -78,6 +82,7 @@ export class Sfx {
       e.master.gain.value = this._muted ? 0 : 0.85;
       e.music.gain.value = this._musicOn ? this.musicLevel : 0;
       this.music = new Music(e);
+      if (this.voiceLevel > 0) this.voice = new VoicePlayer(e, this.voiceLevel);
       this.music.start(e.now);
       this.ambience(e);
       window.setInterval(() => {
@@ -165,6 +170,16 @@ export class Sfx {
   // ---------------- hiệu ứng (giữ tên cũ để game gọi) ----------------
 
   /** kind: kiểu súng riêng của người xem (xem voices.LASER_KINDS) */
+  /** lồng tiếng theo key trong voice-lines.ts (thiếu file thì im lặng) */
+  say(key: string) {
+    if (this.ok) this.voice?.say(key);
+  }
+
+  /** số file lồng tiếng đã tìm thấy */
+  get voiceCount() {
+    return this.voice?.count ?? 0;
+  }
+
   laser(x?: number, kind: vo.LaserKind = "pew", gold = false) {
     const e = this.ok;
     if (e && this.gate("laser", 45)) vo.laserShot(e, e.now, kind, x, gold);

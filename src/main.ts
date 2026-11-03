@@ -17,6 +17,7 @@ await fontsReady();
 const game = new Game(balanceFromQuery(q));
 game.sfx.muted = q.get("mute") === "1";
 game.sfx.musicOn = q.get("music") !== "0";
+if (q.get("voice") !== null) game.sfx.voiceLevel = Math.max(0, Math.min(2, +q.get("voice")! || 0));
 if (q.get("vol")) game.sfx.musicLevel = Math.max(0, Math.min(1, +q.get("vol")! || 0.5));
 // OBS / TikTok LIVE Studio cho phát tiếng ngay; trình duyệt thường thì chờ lần chạm/phím đầu tiên
 game.sfx.unlock();
