@@ -47,7 +47,7 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 
 ### Bảng hướng dẫn, trùm người xem & kẻ phản bội
 
-- **Bảng "📖 CÁCH CHƠI"** hiện ở màn nghỉ giữa các vòng: tim → laser, bình luận → tên lửa, follow/chia sẻ → đẩy UFO lùi, từng loại quà → vũ khí, cùng các vai trò dưới đây. Trong trận, dòng gợi ý luân phiên cũng nhắc các vai trò mới.
+- **Bảng "📖 CÁCH CHƠI"** hiện ở màn nghỉ giữa các vòng: tim → laser, bình luận → tên lửa, follow/chia sẻ → đẩy UFO lùi, từng loại quà → vũ khí, cùng các vai trò dưới đây. Trong trận, dòng gợi ý luân phiên cũng nhắc các vai trò mới. Màn hình chỉ ghi **"Quà lớn → Làm TRÙM"**, không ghi số xu.
 - **👑 Trùm người xem**: 1 lượt quà từ **100 xu** (`?bossgift=100` để đổi) → người tặng vào hàng chờ (tối đa 10 người) và điều khiển trùm ở vòng tiếp theo: ảnh đại diện + vương miện + tên gắn trên thân trùm, tiêu đề *TRÙM NGƯỜI XEM*, máu ×1,25. Quà vẫn bắn như thường ở vòng đang đánh. Trong vòng làm trùm, tim/bình luận/quà của chính người đó **hồi máu cho trùm** (tối đa 30% máu) thay vì bắn. Thắng: *HẠ GỤC TRÙM …*; thua: *… ĐÃ CHIẾM TRÁI ĐẤT!*. Lệnh gọi boss của người vận hành không dùng hàng chờ.
 - **😈 Kẻ phản bội**: bình luận *đổi phe*, *hail UFO*, *theo UFO*, *team UFO*, *UFO muôn năm*… (có dấu hay không đều được) → thành **UFO nhỏ màu đỏ** có ảnh đại diện, lượn trên đầu người chơi (tối đa 8 cùng lúc). Tim/bình luận của họ bắn tia đỏ xuống phố và hồi máu cho trùm (tối đa 15% máu / vòng). Cả phòng **ưu tiên bắn** UFO đỏ (~60% đạn đổi hướng, trừ siêu tên lửa). Bị bắn hạ, bình luận *về phe* / *quay về*, tặng quà, hoặc sang vòng mới → quay về phe Trái Đất; sau khi bị hạ phải chờ 20 giây mới đổi phe lại được.
 

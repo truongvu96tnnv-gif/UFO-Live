@@ -3544,7 +3544,7 @@ export class Game {
 
     if (this.phase === "battle") {
       // gợi ý luân phiên
-      const tips = [...TIPS, `👑 QUÀ TỪ ${this.bal.bossGift} XU = VÒNG SAU LÀM TRÙM`, "😈 BÌNH LUẬN “ĐỔI PHE” = THÀNH UFO ĐỎ"];
+      const tips = [...TIPS, "👑 QUÀ LỚN = VÒNG SAU LÀM TRÙM", "😈 BÌNH LUẬN “ĐỔI PHE” = THÀNH UFO ĐỎ"];
       const tip = tips[Math.floor(this.time / 3.5) % tips.length];
       this.drawFund(ctx);
       const ab = this.abilityLine();
@@ -4058,7 +4058,7 @@ export class Game {
 
   /** Bảng hướng dẫn tương tác (màn nghỉ giữa các vòng) */
   private drawGuide(ctx: CanvasRenderingContext2D, y0: number) {
-    const rows = guideRows(this.bal.bossGift);
+    const rows = guideRows();
     const half = Math.ceil(rows.length / 2);
     const rh = 40;
     const x0 = 70;

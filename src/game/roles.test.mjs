@@ -16,9 +16,10 @@ test("nhận lệnh về phe", () => {
 });
 
 test("bảng hướng dẫn có tim, bình luận, quà và các vai trò mới", () => {
-  const rows = guideRows(100);
+  const rows = guideRows();
   const how = rows.map((r) => r[1]);
   assert.ok(how.includes("Thả tim") && how.includes("Bình luận") && how.includes("Hoa hồng"));
-  assert.ok(rows.some((r) => r[0] === "👑" && r[1].includes("100")));
+  assert.ok(rows.some((r) => r[0] === "👑" && r[1] === "Quà lớn"));
+  assert.ok(!rows.some((r) => /\d+\s*xu/.test(r[1] + r[2])), "không ghi số xu trên bảng");
   assert.ok(rows.some((r) => r[0] === "😈"));
 });

@@ -126,7 +126,7 @@ export function drawTraitor(ctx: CanvasRenderingContext2D, tr: Traitor, avatar: 
 }
 
 /** Bảng hướng dẫn: [biểu tượng, cách tương tác, tác dụng] */
-export function guideRows(bossGift: number): [string, string, string][] {
+export function guideRows(): [string, string, string][] {
   const rows: [string, string, string][] = [
     ["❤️", "Thả tim", "Bắn laser"],
     ["💬", "Bình luận", "Phóng tên lửa"],
@@ -140,7 +140,8 @@ export function guideRows(bossGift: number): [string, string, string][] {
     seen.add(g.weapon);
     rows.push([g.icon, g.name, WEAPON_LABEL[g.weapon]]);
   }
-  rows.push(["👑", `Quà từ ${bossGift} xu`, "Làm TRÙM vòng sau"]);
+  // không ghi số xu trên màn hình (tránh biến thành "mục tiêu xu" kêu gọi tặng quà); mức xu chỉnh bằng ?bossgift=
+  rows.push(["👑", "Quà lớn", "Làm TRÙM vòng sau"]);
   rows.push(["😈", "Chat “đổi phe”", "Thành UFO đỏ"]);
   rows.push(["🌍", "Chat “về phe”", "Về phe Trái Đất"]);
   return rows;
