@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0612" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Rạp Phim Live · Phim tương tác</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; touch-action: manipulation; }
+      body { background: #0b0612; }
+      canvas { position: fixed; display: block; }
+      #help {
+        position: absolute; left: 16px; top: 16px; max-width: 520px; padding: 14px 18px;
+        background: rgba(5, 8, 20, 0.88); color: #e8eeff; border: 1px solid #2c3a66; border-radius: 12px;
+        font: 500 14px/1.55 "Chakra Petch", system-ui, sans-serif; white-space: pre-line; display: none; z-index: 2;
+      }
+      #help b { color: #ffd55a; }
+    </style>
+  </head>
+  <body>
+    <div id="help"></div>
+    <script type="module" src="/src/cinema/main.ts"></script>
+  </body>
+</html>

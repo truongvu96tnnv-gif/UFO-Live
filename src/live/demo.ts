@@ -22,7 +22,8 @@ export class DemoCrowd {
   private present = new Set<number>();
   private timer = 0;
 
-  constructor(private sink: EventSink) {
+  /** chat: câu bình luận tuỳ chỉnh (vd. rạp phim cần "1"/"2"); bỏ trống = câu của game UFO */
+  constructor(private sink: EventSink, private chat?: () => string) {
     this.users = NAMES.map((name, i) => ({ id: `demo-${i}`, name, avatar: `demo:${(i * 47) % 360}` }));
   }
 
@@ -63,9 +64,9 @@ export class DemoCrowd {
     if (this.present.size > crowd && Math.random() < dt * 2) this.present.delete([...this.present][0]);
     if (!this.present.size) return;
     if (Math.random() < dt * this.rate(5)) this.sink({ type: "like", user: this.someone(), count: 1 + ((Math.random() * 12) | 0) });
-    if (Math.random() < dt * this.rate(0.8)) this.sink({ type: "chat", user: this.someone(), text: CHATS[(Math.random() * CHATS.length) | 0] });
+    if (Math.random() < dt * this.rate(0.8)) this.sink({ type: "chat", user: this.someone(), text: this.chat?.() ?? CHATS[(Math.random() * CHATS.length) | 0] });
     // thỉnh thoảng có người "đổi phe" / "về phe" để thấy UFO đỏ trong chế độ thử
-    if (Math.random() < dt * 0.04) this.sink({ type: "chat", user: this.someone(), text: Math.random() < 0.7 ? "đổi phe" : "về phe" });
+    if (!this.chat && Math.random() < dt * 0.04) this.sink({ type: "chat", user: this.someone(), text: Math.random() < 0.7 ? "đổi phe" : "về phe" });
     if (Math.random() < dt * this.rate(0.14)) {
       let r = Math.random() * TOTAL_W;
       const g = GIFTS[WEIGHTS.findIndex((w) => (r -= w) < 0)] ?? GIFTS[0];

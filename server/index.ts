@@ -121,6 +121,10 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     res.writeHead(302, { location: "/control.html" }).end();
     return;
   }
+  if (url.pathname === "/cinema" || url.pathname === "/cinema/") {
+    res.writeHead(302, { location: `/cinema.html${url.search}` }).end();
+    return;
+  }
   if (url.pathname === "/avatar") return avatar(url.searchParams.get("u") ?? "", res);
   if (url.pathname === "/emit" && req.method === "POST") return emit(req, res);
   if (url.pathname === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, username: USERNAME || null, status: lastStatus, roomId: roomIdNow, roomStatus, clients: wss.clients.size, viewers: viewerCount, events: counts, lastEventAt, tiktokLag: lagStats(), tiktokPackets: raw, lastPacketAt }));
@@ -335,6 +339,7 @@ function schedule() {
 server.listen(PORT, HOST, () => {
   console.log(`UFO Live bridge: http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
   console.log(`  Điều khiển: http://localhost:${PORT}/control`);
+  console.log(`  Rạp phim tương tác: http://localhost:${PORT}/cinema`);
   console.log(`  Browser Source (1080×1920): http://localhost:${PORT}/`);
   if (USERNAME) void connectTikTok();
   else console.log("  Chưa đặt TIKTOK_USERNAME — chỉ phục vụ trang game và POST /emit.");

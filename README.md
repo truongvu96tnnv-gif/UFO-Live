@@ -51,6 +51,33 @@ Một vòng: **cảnh báo (3,6 s) → chiến đấu (~75 s) → thắng hoặc
 - **👑 Trùm người xem**: 1 lượt quà từ **100 xu** (`?bossgift=100` để đổi) → người tặng vào hàng chờ (tối đa 10 người) và điều khiển trùm ở vòng tiếp theo: ảnh đại diện + vương miện + tên gắn trên thân trùm, tiêu đề *TRÙM NGƯỜI XEM*, máu ×1,25. Quà vẫn bắn như thường ở vòng đang đánh. Trong vòng làm trùm, tim/bình luận/quà của chính người đó **hồi máu cho trùm** (tối đa 30% máu) thay vì bắn. Thắng: *HẠ GỤC TRÙM …*; thua: *… ĐÃ CHIẾM TRÁI ĐẤT!*. Lệnh gọi boss của người vận hành không dùng hàng chờ.
 - **😈 Kẻ phản bội**: bình luận *đổi phe*, *hail UFO*, *theo UFO*, *team UFO*, *UFO muôn năm*… (có dấu hay không đều được) → thành **UFO nhỏ màu đỏ** có ảnh đại diện, lượn trên đầu người chơi (tối đa 8 cùng lúc). Tim/bình luận của họ bắn tia đỏ xuống phố và hồi máu cho trùm (tối đa 15% máu / vòng). Cả phòng **ưu tiên bắn** UFO đỏ (~60% đạn đổi hướng, trừ siêu tên lửa). Bị bắn hạ, bình luận *về phe* / *quay về*, tặng quà, hoặc sang vòng mới → quay về phe Trái Đất; sau khi bị hạ phải chờ 20 giây mới đổi phe lại được.
 
+## 🎬 Chế độ mới: Rạp Chiếu Phim Tương Tác
+
+Trang thứ hai dùng chung bridge: **`http://localhost:8787/cinema`** (dev: `http://localhost:5173/cinema.html?demo=1`). Cả phòng live cùng "đạo diễn" một bộ phim nhiều nhánh, người xem ngồi trong rạp và **được đóng vai trong phim**.
+
+| Pha | Diễn ra |
+|---|---|
+| Chờ suất chiếu (20 s) | Poster phim + đếm ngược. Ai tương tác là vào rạp, có ghế riêng (ảnh đại diện + tên) |
+| Phân vai | 2 người tương tác nhiều nhất làm **VAI CHÍNH / VAI PHỤ**: ảnh đại diện thành đầu nhân vật, tên được chèn vào lời thoại. Đã đóng vai thì điểm về 0 để người khác có lượt |
+| Cảnh phim | Bối cảnh vẽ bằng code, phụ đề chạy chữ, nhạc nền theo không khí cảnh |
+| **Cả rạp quyết định** (15 s) | Bình luận **1** hoặc **2** (cũng nhận `11111`, `số 2`, `chọn 1`, `A`/`B`, `một`/`hai`, 1️⃣ 2️⃣). Mỗi người 1 phiếu, đổi ý được. Ghế người đã chọn hiện viền màu + số. Không ai chọn thì gia hạn 8 s một lần; hoà thì bốc thăm |
+| Công bố | Trống dồn, lựa chọn thắng sáng lên → sang cảnh tương ứng |
+| Cái kết | Tên kết + loại (có hậu / hài / buồn / bất ngờ), **mở khoá bộ sưu tập kết** (`🏆 Đã mở 2/5 cái kết`, lưu trong trình duyệt) để cả phòng muốn xem lại chọn khác |
+| Danh đề | Vai chính/phụ, **Đạo diễn** (chọn trúng ý cả rạp nhiều nhất), **Nhà sản xuất** (người tặng quà), hành trình cả rạp đã chọn, khán giả → phim tiếp theo |
+
+Người xem làm gì trong rạp:
+
+- ❤️ **Tim**: tim bay lên từ ghế, nạp thanh *không khí* — đầy thì **CẢ RẠP BÙNG NỔ** (vỗ tay + pháo giấy, mốc sau cao hơn).
+- 💬 **Bình luận**: bong bóng chữ trên ghế (đã lọc chữ xấu như game UFO); bình luận cảm xúc (*haha*, *sợ quá*, *khóc mất*, *hay quá*, *bất ngờ*…) bật emoji 😂 😱 😭 😍 😮 trên đầu.
+- 🎁 **Quà / rương**: bỏng ngô 🍿 bung ra từ ghế. Trong lúc bình chọn, quà của người **đã chọn** thành **⭐ phiếu vàng** cho lựa chọn đó: √xu phiếu, tối đa 10 / người / lần, tổng phiếu vàng không vượt số người bình chọn → quà giúp được nhưng không mua đứt kết quả. Quà lớn (≥100 xu) hiện *🎬 NHÀ SẢN XUẤT …*. Không có phần thưởng giá trị thật.
+- ➕ **Follow / ↗ chia sẻ**: ghế VIP vàng 👑.
+
+Rạp có 45 ghế; hàng trên (không bị khung chat TikTok che) được xếp trước, rạp đầy thì người im lâu nhất nhường ghế. Lệnh từ `/control` (tắt âm, nhạc, BOT) dùng được; nút gọi boss thì rạp báo lỗi vì không có boss.
+
+**Phim có sẵn** (`src/cinema/films.ts`): *Đêm UFO Ghé Làng* (viễn tưởng hài, 5 kết) và *Ngôi Nhà Cuối Hẻm* (kinh dị hài, 5 kết), chiếu luân phiên. Thêm phim = thêm 1 phần tử vào `FILMS` (cảnh, bối cảnh, ai đứng trên màn, lời thoại có `{hero}` / `{friend}`, 2 lựa chọn hoặc cái kết); `npm test` kiểm tra mọi nhánh đều tới một cái kết. Bối cảnh vẽ sẵn: làng đêm, ruộng lúa, vũ trụ, quán trà sữa vũ trụ, hẻm tối, nhà hoang, bếp, sân khấu; nhân vật: người ngoài hành tinh Bíp, bà cụ, bà ma, mèo đen, dân làng.
+
+Phím tắt: **1 / 2** bình chọn · **L** tim · **C** bình luận · **G** quà 100 xu · **F** follow (các phím này khoá khi nối live thật) · **N** qua pha tiếp / chốt bình chọn · **P** đổi phim · **M / U** âm thanh / nhạc · **H** trợ giúp. Tham số URL: `demo=1&crowd=0..3` · `lobby=20` thời gian chờ suất chiếu (giây) · `vote=15` thời gian bình chọn · `read=1` hệ số tốc độ đọc phụ đề (2 = chậm gấp đôi) · `mute=1` · `music=0` · `bubbles=0` · `ban=…` · `fit=cover` · `ws=…` · `keys=1`.
+
 ## Trùm
 
 **Chuỗi thắng** = số vòng thắng liên tiếp (thua 1 vòng là về 0). Tỉ số, chuỗi và kỷ lục được lưu trong trình duyệt nên tải lại trang giữa buổi live không mất. HUD luôn hiện `🔥 CHUỖI 7/10`, màn nghỉ nhắc "thắng thêm 3 trận gặp Pháo Đài Tinh Thể". Thua trùm thì màn hình báo chuỗi bị cắt đứt.
@@ -246,6 +273,12 @@ src/game/sfx.ts        âm thanh tổng hợp WebAudio
 src/live/              kiểu sự kiện, WebSocket client, người xem giả lập
 src/ui/panel.ts        thanh nút + bảng tặng quà (chỉ chế độ demo)
 server/index.ts        bridge TikTok → WebSocket, proxy ảnh, phục vụ dist/
+cinema.html            trang Rạp Chiếu Phim Tương Tác
+src/cinema/films.ts    kịch bản phim nhiều nhánh (thêm phim ở đây)
+src/cinema/cinema.ts   luật rạp phim: chờ suất → phân vai → cảnh → bình chọn → kết → danh đề; vẽ rạp, ghế, bảng bình chọn
+src/cinema/votes.ts    đọc phiếu 1/2 từ bình luận, đếm phiếu & phiếu vàng, nhận diện cảm xúc
+src/cinema/scenery.ts  bối cảnh & nhân vật trong phim (vẽ bằng code)
+src/cinema/audio.ts    âm thanh rạp (WebAudio tự tổng hợp)
 ```
 
 ### Thời gian hiển thị người xem

@@ -19,5 +19,10 @@ export default defineConfig(({ mode }) => ({
   build:
     mode === "embed"
       ? { outDir: "dist-embed", target: "es2022", assetsInlineLimit: 100_000_000, modulePreload: false }
-      : { outDir: "dist", target: "es2022" },
+      : {
+          outDir: "dist",
+          target: "es2022",
+          // 2 trang: game UFO (index.html) và Rạp Phim Tương Tác (cinema.html), dùng chung bridge
+          rollupOptions: { input: { main: "index.html", cinema: "cinema.html" } },
+        },
 }));
